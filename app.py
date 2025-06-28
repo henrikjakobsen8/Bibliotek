@@ -1,258 +1,16 @@
 import sqlite3
 import datetime
 import os
-from flask import Flask, request, render_template_string, redirect, url_for, flash, g, session, send_file
-import csv
 import io
+import csv
+from flask import Flask, request, render_template_string, redirect, url_for, flash, g, session
 
 app = Flask(__name__)
-app.secret_key = 'hemmelig_nogler'  # Skift til noget sikkert i produktion
+app.secret_key = 'hemmelig_nogler'
 
 DATABASE = 'bibliotek.db'
 
-# --- Admin login data (simpelt setup) ---
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "bibliotek123"
-
-# HTML-template med responsivt design + alle funktioner
-HTML_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="da">
-<head>
-    <meta charset="UTF-8" />
-    <title>Bibliotek Admin</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin:0; padding:0; }
-        header { background-color: #2a5d3b; padding: 1rem; color: white; text-align: center; }
-        main { padding: 1rem; max-width: 900px; margin: auto; }
-        h1, h2 { color: #2a5d3b; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
-        th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
-        th { background-color: #d8e4d8; }
-        input[type="text"], input[type="password"], select {
-            padding: 0.4rem; margin-bottom: 0.5rem; width: 100%; max-width: 300px;
-            border-radius: 4px; border: 1px solid #ccc;
-        }
-        button, input[type="submit"] {
-            background-color: #2a5d3b; color: white; border: none; padding: 0.5rem 1rem;
-            border-radius: 4px; cursor: pointer; margin-top: 0.5rem;
-        }
-        button:hover, input[type="submit"]:hover { background-color: #244e33; }
-        .flex-row { display: flex; flex-wrap: wrap; gap: 1rem; }
-        .flex-col { flex: 1 1 300px; }
-        .message { padding: 0.5rem; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 1rem; }
-        nav a { color: white; text-decoration: none; margin-left: 1rem; }
-        nav { text-align: right; margin-bottom: 1rem; }
-        .search-input { max-width: 250px; margin-bottom: 1rem; }
-        @media (max-width: 600px) {
-            .flex-row { flex-direction: column; }
-        }
-        /* Modal styles for confirmation */
-        .modal {
-            display:none; position: fixed; z-index: 1000; left:0; top:0; width:100%; height:100%;
-            overflow:auto; background-color: rgba(0,0,0,0.4);
-        }
-        .modal-content {
-            background-color: #fefefe; margin: 15% auto; padding: 1rem; border: 1px solid #888;
-            width: 90%; max-width: 400px; border-radius: 8px;
-        }
-        .modal-buttons { text-align: right; margin-top: 1rem; }
-    </style>
-    <script>
-        // Simpel bekræftelse før sletning
-        function confirmDelete(type, kode) {
-            const modal = document.getElementById('modal');
-            const modalText = document.getElementById('modal-text');
-            modal.style.display = 'block';
-            modalText.textContent = `Er du sikker på, at du vil slette ${type} med kode "${kode}"?`;
-            document.getElementById('confirm-delete-btn').onclick = function() {
-                window.location.href = `/admin/delete_${type}?kode=${kode}`;
-            }
-        }
-        function closeModal() {
-            document.getElementById('modal').style.display = 'none';
-        }
-
-        // Inline redigering - enable save button
-        function enableSave(btn) {
-            btn.disabled = false;
-        }
-
-        // Søgefunktion for tabeller
-        function searchTable(inputId, tableId) {
-            let input = document.getElementById(inputId);
-            let filter = input.value.toLowerCase();
-            let table = document.getElementById(tableId);
-            let trs = table.getElementsByTagName("tr");
-            for (let i=1; i<trs.length; i++) {
-                let tds = trs[i].getElementsByTagName("td");
-                let found = false;
-                for (let j=0; j<tds.length; j++) {
-                    if (tds[j].textContent.toLowerCase().indexOf(filter) > -1) {
-                        found = true;
-                        break;
-                    }
-                }
-                trs[i].style.display = found ? "" : "none";
-            }
-        }
-    </script>
-</head>
-<body>
-<header>
-    <h1>Bibliotek Admin</h1>
-    <nav>
-        <a href="/">Til Udlån</a>
-        <a href="/admin/logout" style="color:#ff9999;">Log ud</a>
-    </nav>
-</header>
-<main>
-
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    {% for message in messages %}
-      <div class="message">{{ message }}</div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
-
-<h2>Brugere <input id="userSearch" class="search-input" type="text" placeholder="Søg brugere..." onkeyup="searchTable('userSearch', 'userTable')" /></h2>
-<table id="userTable" aria-label="Brugerliste">
-<thead>
-    <tr><th>Kode</th><th>Navn</th><th>Aktuelle Udlån</th><th>Rediger</th><th>Slet</th></tr>
-</thead>
-<tbody>
-    {% for kode, navn, udlaan_antal in brugere %}
-    <tr>
-        <form method="POST" action="/admin/edit_bruger">
-        <td>{{ kode }}<input type="hidden" name="kode" value="{{ kode }}"></td>
-        <td><input type="text" name="navn" value="{{ navn }}" oninput="enableSave(this.form.querySelector('button'))" required></td>
-        <td>{{ udlaan_antal }}</td>
-        <td><button type="submit" disabled>Gem</button></td>
-        <td><button type="button" onclick="confirmDelete('bruger', '{{ kode }}')">Slet</button></td>
-        </form>
-    </tr>
-    {% endfor %}
-</tbody>
-</table>
-
-<h3>Tilføj ny bruger</h3>
-<form method="POST" action="/admin/add_bruger" enctype="multipart/form-data">
-    <input type="text" name="kode" placeholder="Bruger stregkode" required maxlength="50" />
-    <input type="text" name="navn" placeholder="Brugernavn" required maxlength="100" />
-    <button type="submit">Tilføj bruger</button>
-</form>
-<form method="POST" action="/admin/upload_brugere" enctype="multipart/form-data" style="margin-top: 1rem;">
-    <label>Upload CSV (kode, navn):</label><br />
-    <input type="file" name="file" accept=".csv" required />
-    <button type="submit">Upload brugere</button>
-</form>
-
-<hr />
-
-<h2>Bøger <input id="bookSearch" class="search-input" type="text" placeholder="Søg bøger..." onkeyup="searchTable('bookSearch', 'bookTable')" /></h2>
-<table id="bookTable" aria-label="Bogliste">
-<thead>
-    <tr><th>Kode</th><th>Titel</th><th>Aktuelle Udlån</th><th>Rediger</th><th>Slet</th></tr>
-</thead>
-<tbody>
-    {% for kode, titel, udlaan_antal in boeger %}
-    <tr>
-        <form method="POST" action="/admin/edit_bog">
-        <td>{{ kode }}<input type="hidden" name="kode" value="{{ kode }}"></td>
-        <td><input type="text" name="titel" value="{{ titel }}" oninput="enableSave(this.form.querySelector('button'))" required></td>
-        <td>{{ udlaan_antal }}</td>
-        <td><button type="submit" disabled>Gem</button></td>
-        <td><button type="button" onclick="confirmDelete('bog', '{{ kode }}')">Slet</button></td>
-        </form>
-    </tr>
-    {% endfor %}
-</tbody>
-</table>
-
-<h3>Tilføj ny bog</h3>
-<form method="POST" action="/admin/add_bog" enctype="multipart/form-data">
-    <input type="text" name="kode" placeholder="Bog stregkode" required maxlength="50" />
-    <input type="text" name="titel" placeholder="Bogtitel" required maxlength="200" />
-    <button type="submit">Tilføj bog</button>
-</form>
-<form method="POST" action="/admin/upload_boeger" enctype="multipart/form-data" style="margin-top: 1rem;">
-    <label>Upload CSV (kode, titel):</label><br />
-    <input type="file" name="file" accept=".csv" required />
-    <button type="submit">Upload bøger</button>
-</form>
-
-<hr />
-
-<h2>Udlåns-historik</h2>
-<form method="GET" action="/admin" style="margin-bottom: 1rem;">
-    <input type="text" name="filter" placeholder="Søg efter bruger, bog eller dato" style="width: 300px;" value="{{ request.args.get('filter', '') }}" />
-    <button type="submit">Søg</button>
-</form>
-<table aria-label="Udlåns Historik">
-<thead>
-    <tr>
-        <th>Bruger</th><th>Bog</th><th>Udlån Dato</th><th>Afleveret Dato</th>
-    </tr>
-</thead>
-<tbody>
-    {% for bruger, bog, udlaan_dato, afleveret_dato in historik %}
-    <tr>
-        <td>{{ bruger }}</td>
-        <td>{{ bog }}</td>
-        <td>{{ udlaan_dato[:10] }}</td>
-        <td>{% if afleveret_dato %}{{ afleveret_dato[:10] }}{% else %}Ikke afleveret{% endif %}</td>
-    </tr>
-    {% endfor %}
-</tbody>
-</table>
-
-<!-- Modal for slet -->
-<div id="modal" class="modal">
-  <div class="modal-content">
-    <p id="modal-text"></p>
-    <div class="modal-buttons">
-      <button onclick="closeModal()">Annuller</button>
-      <button id="confirm-delete-btn">Slet</button>
-    </div>
-  </div>
-</div>
-
-</main>
-</body>
-</html>
-'''
-
-LOGIN_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="da">
-<head>
-    <meta charset="UTF-8" />
-    <title>Admin Login</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;}
-        form { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 300px;}
-        input { width: 100%; padding: 0.5rem; margin: 0.5rem 0; border-radius: 4px; border: 1px solid #ccc; }
-        button { background-color: #2a5d3b; color: white; border: none; padding: 0.5rem; width: 100%; border-radius: 4px; cursor: pointer;}
-        button:hover { background-color: #244e33;}
-        .error { color: red; }
-    </style>
-</head>
-<body>
-<form method="POST">
-    <h2>Admin Login</h2>
-    {% if error %}
-    <p class="error">{{ error }}</p>
-    {% endif %}
-    <input type="text" name="username" placeholder="Brugernavn" required autofocus />
-    <input type="password" name="password" placeholder="Adgangskode" required />
-    <button type="submit">Log ind</button>
-</form>
-</body>
-</html>
-'''
-
+# --- DATABASE HELPERE ---
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -270,8 +28,14 @@ def init_db():
     with app.app_context():
         db = get_db()
         cursor = db.cursor()
-        cursor.execute('''CREATE TABLE IF NOT EXISTS brugere (kode TEXT PRIMARY KEY, navn TEXT)''')
-        cursor.execute('''CREATE TABLE IF NOT EXISTS boeger (kode TEXT PRIMARY KEY, titel TEXT)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS brugere (
+            kode TEXT PRIMARY KEY,
+            navn TEXT
+        )''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS boeger (
+            kode TEXT PRIMARY KEY,
+            titel TEXT
+        )''')
         cursor.execute('''CREATE TABLE IF NOT EXISTS udlaan (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             bruger_kode TEXT,
@@ -279,36 +43,340 @@ def init_db():
             udlaan_dato TEXT,
             afleveret_dato TEXT
         )''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS admin (
+            brugernavn TEXT PRIMARY KEY,
+            kodeord TEXT
+        )''')
+        # Tilføj default admin (brugernavn: admin, kodeord: admin)
+        try:
+            cursor.execute("INSERT INTO admin (brugernavn, kodeord) VALUES (?, ?)", ("admin", "admin"))
+        except sqlite3.IntegrityError:
+            pass
         db.commit()
 
 init_db()
 
+# --- ADMIN LOGIN BESKYTTELSE ---
 def admin_required(f):
     from functools import wraps
     @wraps(f)
-    def decorated_function(*args, **kwargs):
+    def decorated(*args, **kwargs):
         if not session.get('admin_logged_in'):
+            flash("Du skal være logget ind som admin")
             return redirect(url_for('admin_login'))
         return f(*args, **kwargs)
-    return decorated_function
+    return decorated
+
+# --- UTILS ---
+def find_i_db(tabel, kode):
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute(f"SELECT * FROM {tabel} WHERE kode = ?", (kode,))
+    return cursor.fetchone()
+
+def bog_udlaant(kode):
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM udlaan WHERE bog_kode = ? AND afleveret_dato IS NULL", (kode,))
+    return cursor.fetchone() is not None
+
+# --- ROUTES ---
+
+# Forside med udlån/aflevering
+HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <title>Bibliotek - Udlånssystem</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; }
+        header { background-color: #2a5d3b; padding: 20px; color: white; text-align: center; }
+        main { padding: 20px; max-width: 600px; margin: auto; }
+        form { background-color: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input[type="text"], select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="submit"] { background-color: #2a5d3b; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        input[type="submit"]:hover { background-color: #244e33; }
+        .message { padding: 10px; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 20px; }
+        a { color: #2a5d3b; text-decoration: none; display: inline-block; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Bibliotekets Udlånssystem</h1>
+    </header>
+    <main>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="message">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="/udlaan">
+            <h2>Udlån af bog</h2>
+            <label>Bruger stregkode:</label>
+            <input type="text" name="bruger" required>
+            <label>Bog stregkode:</label>
+            <input type="text" name="bog" required>
+            <input type="submit" value="Udlån">
+        </form>
+
+        <form method="POST" action="/aflevering">
+            <h2>Aflever bog</h2>
+            <label>Bog stregkode:</label>
+            <input type="text" name="bog" required>
+            <input type="submit" value="Aflever">
+        </form>
+
+        <a href="/udlaan-oversigt">Se aktuelle udlån</a><br>
+        <a href="/admin">Adminside</a>
+    </main>
+</body>
+</html>
+'''
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_TEMPLATE)
+
+@app.route('/udlaan', methods=['POST'])
+def udlaan():
+    bruger = request.form['bruger']
+    bog = request.form['bog']
+
+    if not find_i_db('brugere', bruger):
+        flash("Bruger ikke fundet")
+        return redirect(url_for('index'))
+    if not find_i_db('boeger', bog):
+        flash("Bog ikke fundet")
+        return redirect(url_for('index'))
+    if bog_udlaant(bog):
+        flash("Bog er allerede udlånt")
+        return redirect(url_for('index'))
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("INSERT INTO udlaan (bruger_kode, bog_kode, udlaan_dato, afleveret_dato) VALUES (?, ?, ?, NULL)",
+                   (bruger, bog, datetime.datetime.now().isoformat()))
+    db.commit()
+    flash("Udlån registreret")
+    return redirect(url_for('index'))
+
+@app.route('/aflevering', methods=['POST'])
+def aflevering():
+    bog = request.form['bog']
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("UPDATE udlaan SET afleveret_dato = ? WHERE bog_kode = ? AND afleveret_dato IS NULL",
+                   (datetime.datetime.now().isoformat(), bog))
+    if cursor.rowcount > 0:
+        db.commit()
+        flash("Aflevering registreret")
+    else:
+        flash("Bog er ikke udlånt")
+    return redirect(url_for('index'))
+
+@app.route('/udlaan-oversigt')
+@admin_required
+def udlaan_oversigt():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("""
+        SELECT u.id, u.bog_kode, u.bruger_kode, u.udlaan_dato, u.afleveret_dato, b.titel, br.navn
+        FROM udlaan u
+        LEFT JOIN boeger b ON u.bog_kode = b.kode
+        LEFT JOIN brugere br ON u.bruger_kode = br.kode
+        ORDER BY u.udlaan_dato DESC
+    """)
+    udlaante = cursor.fetchall()
+
+    html = '''
+    <html><head><title>Udlåns Historik</title><style>
+    body { font-family: Segoe UI, sans-serif; background: #f8f9f4; color: #333; padding: 2em; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
+    th { background: #2a5d3b; color: white; }
+    tr:nth-child(even) { background: #e9f1e7; }
+    a { color: white; background: #2a5d3b; padding: 0.5em 1em; text-decoration: none; border-radius: 4px; display: inline-block; margin-top: 1em; }
+    </style></head><body>
+    <h2>Udlåns Historik (inkl. afleverede)</h2>
+    <table>
+    <tr><th>ID</th><th>Bog</th><th>Bruger</th><th>Udlånsdato</th><th>Afleveringsdato</th></tr>
+    '''
+    for udlaan in udlaante:
+        titel = udlaan['titel'] or udlaan['bog_kode']
+        navn = udlaan['navn'] or udlaan['bruger_kode']
+        afleveret = udlaan['afleveret_dato'][:10] if udlaan['afleveret_dato'] else '-'
+        html += f"<tr><td>{udlaan['id']}</td><td>{titel}</td><td>{navn}</td><td>{udlaan['udlaan_dato'][:10]}</td><td>{afleveret}</td></tr>"
+    html += "</table><a href='/admin'>Tilbage til admin</a></body></html>"
+    return html
+
+# --- ADMIN LOGIN/LOGOUT ---
+LOGIN_TEMPLATE = '''
+<html><head><title>Admin Login</title><style>
+body { font-family: Segoe UI, sans-serif; background: #f0f4f8; padding: 2em; }
+form { max-width: 300px; margin: auto; background: white; padding: 1em; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+input[type=text], input[type=password] { width: 100%; padding: 0.5em; margin-bottom: 1em; border-radius: 4px; border: 1px solid #ccc; }
+input[type=submit] { background: #2a5d3b; color: white; border: none; padding: 0.5em 1em; border-radius: 4px; cursor: pointer; }
+input[type=submit]:hover { background: #244e33; }
+.message { color: red; margin-bottom: 1em; }
+</style></head><body>
+<h2>Admin Login</h2>
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    {% for message in messages %}
+      <div class="message">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+<form method="POST">
+    <label>Brugernavn:</label>
+    <input type="text" name="brugernavn" required>
+    <label>Kodeord:</label>
+    <input type="password" name="kodeord" required>
+    <input type="submit" value="Log ind">
+</form>
+</body></html>
+'''
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
-    error = None
     if request.method == 'POST':
-        if (request.form['username'] == ADMIN_USERNAME and
-            request.form['password'] == ADMIN_PASSWORD):
+        brugernavn = request.form['brugernavn']
+        kodeord = request.form['kodeord']
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("SELECT * FROM admin WHERE brugernavn = ? AND kodeord = ?", (brugernavn, kodeord))
+        admin = cursor.fetchone()
+        if admin:
             session['admin_logged_in'] = True
+            session['admin_brugernavn'] = brugernavn
+            flash("Logget ind som admin")
             return redirect(url_for('admin'))
         else:
-            error = "Forkert brugernavn eller adgangskode"
-    return render_template_string(LOGIN_TEMPLATE, error=error)
+            flash("Forkert brugernavn eller kodeord")
+    return render_template_string(LOGIN_TEMPLATE)
 
 @app.route('/admin/logout')
+@admin_required
 def admin_logout():
     session.clear()
-    flash("Du er nu logget ud.")
+    flash("Du er logget ud")
     return redirect(url_for('admin_login'))
+
+# --- ADMIN SIDE MED BRUGERE & BØGER ---
+ADMIN_TEMPLATE = '''
+<html><head><title>Adminside</title><style>
+body { font-family: Segoe UI, sans-serif; padding: 2em; background: #f8f9f4; }
+h2 { color: #2a5d3b; }
+section { background: white; padding: 1em; margin-bottom: 2em; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
+table { border-collapse: collapse; width: 100%; margin-top: 1em;}
+th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left;}
+th { background: #2a5d3b; color: white;}
+tr:nth-child(even) { background: #e9f1e7;}
+input[type=text] { width: 95%; padding: 0.3em; }
+button, input[type=submit] { background: #2a5d3b; color: white; border: none; padding: 0.3em 0.7em; border-radius: 4px; cursor: pointer; margin: 0 0.2em;}
+button:hover, input[type=submit]:hover { background: #244e33;}
+form.inline { display: inline; }
+.message { padding: 0.5em; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 1em; }
+.filter-input { width: 100%; padding: 0.5em; margin-bottom: 1em; border-radius: 4px; border: 1px solid #ccc; }
+.delete-confirm { color: red; font-weight: bold; }
+a { color: #2a5d3b; text-decoration: none; display: inline-block; margin-top: 1em; }
+</style>
+<script>
+function filterTable(inputId, tableId) {
+    let input = document.getElementById(inputId);
+    let filter = input.value.toLowerCase();
+    let table = document.getElementById(tableId);
+    let trs = table.getElementsByTagName("tr");
+    for (let i = 1; i < trs.length; i++) {
+        let tds = trs[i].getElementsByTagName("td");
+        let found = false;
+        for(let j=0; j<tds.length; j++) {
+            if(tds[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                found = true;
+                break;
+            }
+        }
+        trs[i].style.display = found ? "" : "none";
+    }
+}
+
+function confirmDelete(type, kode) {
+    return confirm('Er du sikker på du vil slette ' + type + ' med kode ' + kode + '?');
+}
+</script>
+</head><body>
+<h1>Adminside</h1>
+<p>Logget ind som: {{admin_brugernavn}} | <a href="{{url_for('admin_logout')}}">Log ud</a></p>
+
+<section>
+    <h2>Brugere (aktive udlån vist i parentes)</h2>
+    <input class="filter-input" type="text" id="filterBrugere" onkeyup="filterTable('filterBrugere', 'brugereTable')" placeholder="Søg brugere...">
+    <table id="brugereTable">
+    <tr><th>Kode</th><th>Navn</th><th>Aktive udlån</th><th>Rediger</th><th>Slet</th></tr>
+    {% for b in brugere %}
+    <tr>
+        <form method="POST" action="{{url_for('admin_edit_bruger', kode=b['kode'])}}" class="inline">
+            <td>{{b['kode']}}</td>
+            <td><input name="navn" type="text" value="{{b['navn']}}" required></td>
+            <td style="text-align:center;">{{b['aktive']}}</td>
+            <td><input type="submit" value="Gem"></td>
+        </form>
+        <td><form method="POST" action="{{url_for('admin_delete_bruger', kode=b['kode'])}}" onsubmit="return confirmDelete('brugeren', '{{b['kode']}}');" class="inline">
+            <input type="submit" value="Slet" {% if b['aktive'] > 0 %}disabled title="Kan ikke slettes pga aktive udlån"{% endif %}>
+        </form></td>
+    </tr>
+    {% endfor %}
+    </table>
+</section>
+
+<section>
+    <h2>Bøger (aktive udlån vist i parentes)</h2>
+    <input class="filter-input" type="text" id="filterBoeger" onkeyup="filterTable('filterBoeger', 'boegerTable')" placeholder="Søg bøger...">
+    <table id="boegerTable">
+    <tr><th>Kode</th><th>Titel</th><th>Aktive udlån</th><th>Rediger</th><th>Slet</th></tr>
+    {% for b in boeger %}
+    <tr>
+        <form method="POST" action="{{url_for('admin_edit_bog', kode=b['kode'])}}" class="inline">
+            <td>{{b['kode']}}</td>
+            <td><input name="titel" type="text" value="{{b['titel']}}" required></td>
+            <td style="text-align:center;">{{b['aktive']}}</td>
+            <td><input type="submit" value="Gem"></td>
+        </form>
+        <td><form method="POST" action="{{url_for('admin_delete_bog', kode=b['kode'])}}" onsubmit="return confirmDelete('bogen', '{{b['kode']}}');" class="inline">
+            <input type="submit" value="Slet" {% if b['aktive'] > 0 %}disabled title="Kan ikke slettes pga aktive udlån"{% endif %}>
+        </form></td>
+    </tr>
+    {% endfor %}
+    </table>
+</section>
+
+<section>
+    <h2>Importer Brugere (CSV)</h2>
+    <form method="POST" action="{{url_for('admin_upload_brugere')}}" enctype="multipart/form-data">
+        <input type="file" name="csvfile" accept=".csv" required>
+        <input type="submit" value="Upload">
+    </form>
+</section>
+
+<section>
+    <h2>Importer Bøger (CSV)</h2>
+    <form method="POST" action="{{url_for('admin_upload_boeger')}}" enctype="multipart/form-data">
+        <input type="file" name="csvfile" accept=".csv" required>
+        <input type="submit" value="Upload">
+    </form>
+</section>
+
+<section>
+    <h2>Udlåns Historik</h2>
+    <a href="{{url_for('udlaan_oversigt')}}">Se alle udlån (inkl. afleverede)</a>
+</section>
+
+</body></html>
+'''
 
 @app.route('/admin')
 @admin_required
@@ -316,204 +384,137 @@ def admin():
     db = get_db()
     cursor = db.cursor()
 
-    # Hent brugere + antal aktive udlån pr bruger
-    cursor.execute('''
-        SELECT b.kode, b.navn, 
-        COALESCE((SELECT COUNT(*) FROM udlaan u WHERE u.bruger_kode=b.kode AND u.afleveret_dato IS NULL), 0) AS udlaan_antal
-        FROM brugere b ORDER BY b.navn
-    ''')
+    # Brugere med aktive udlån
+    cursor.execute("""
+    SELECT b.kode, b.navn,
+      (SELECT COUNT(*) FROM udlaan u WHERE u.bruger_kode = b.kode AND u.afleveret_dato IS NULL) as aktive
+    FROM brugere b ORDER BY b.kode
+    """)
     brugere = cursor.fetchall()
 
-    # Hent bøger + antal aktive udlån pr bog
-    cursor.execute('''
-        SELECT b.kode, b.titel,
-        COALESCE((SELECT COUNT(*) FROM udlaan u WHERE u.bog_kode=b.kode AND u.afleveret_dato IS NULL), 0) AS udlaan_antal
-        FROM boeger b ORDER BY b.titel
-    ''')
+    # Bøger med aktive udlån
+    cursor.execute("""
+    SELECT b.kode, b.titel,
+      (SELECT COUNT(*) FROM udlaan u WHERE u.bog_kode = b.kode AND u.afleveret_dato IS NULL) as aktive
+    FROM boeger b ORDER BY b.kode
+    """)
     boeger = cursor.fetchall()
 
-    # Udlåns-historik med filter (søg efter bruger, bog eller dato)
-    filter_val = request.args.get('filter', '').strip()
-    query = '''
-        SELECT br.navn AS bruger, bo.titel AS bog, u.udlaan_dato, u.afleveret_dato
-        FROM udlaan u
-        LEFT JOIN brugere br ON u.bruger_kode = br.kode
-        LEFT JOIN boeger bo ON u.bog_kode = bo.kode
-    '''
-    params = ()
-    if filter_val:
-        query += '''
-            WHERE br.navn LIKE ? OR bo.titel LIKE ? OR u.udlaan_dato LIKE ? OR u.afleveret_dato LIKE ?
-        '''
-        like_val = f'%{filter_val}%'
-        params = (like_val, like_val, like_val, like_val)
-    query += ' ORDER BY u.udlaan_dato DESC LIMIT 100'
-    cursor.execute(query, params)
-    historik = cursor.fetchall()
+    return render_template_string(ADMIN_TEMPLATE, brugere=brugere, boeger=boeger, admin_brugernavn=session.get('admin_brugernavn'))
 
-    return render_template_string(HTML_TEMPLATE, brugere=brugere, boeger=boeger, historik=historik, request=request)
-
-# --- Bruger funktioner ---
-
-@app.route('/admin/add_bruger', methods=['POST'])
+# --- ADMIN REDIGER OG SLET BRUGER ---
+@app.route('/admin/brugere/<kode>', methods=['POST'])
 @admin_required
-def add_bruger():
-    kode = request.form['kode'].strip()
-    navn = request.form['navn'].strip()
-    if not kode or not navn:
-        flash("Kode og navn er påkrævet")
-        return redirect(url_for('admin'))
+def admin_edit_bruger(kode):
+    navn = request.form['navn']
     db = get_db()
     cursor = db.cursor()
-    try:
-        cursor.execute("INSERT INTO brugere (kode, navn) VALUES (?, ?)", (kode, navn))
-        db.commit()
-        flash(f"Bruger '{navn}' tilføjet")
-    except sqlite3.IntegrityError:
-        flash(f"Bruger med kode '{kode}' findes allerede")
-    return redirect(url_for('admin'))
-
-@app.route('/admin/edit_bruger', methods=['POST'])
-@admin_required
-def edit_bruger():
-    kode = request.form['kode'].strip()
-    navn = request.form['navn'].strip()
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("UPDATE brugere SET navn=? WHERE kode=?", (navn, kode))
+    cursor.execute("UPDATE brugere SET navn = ? WHERE kode = ?", (navn, kode))
     db.commit()
-    flash(f"Bruger '{kode}' opdateret")
+    flash(f"Bruger {kode} opdateret")
     return redirect(url_for('admin'))
 
-@app.route('/admin/delete_bruger')
+@app.route('/admin/brugere/<kode>/delete', methods=['POST'])
 @admin_required
-def delete_bruger():
-    kode = request.args.get('kode')
-    if not kode:
-        flash("Manglende bruger kode")
-        return redirect(url_for('admin'))
+def admin_delete_bruger(kode):
     db = get_db()
     cursor = db.cursor()
-    # Før slet tjek om brugeren har aktive udlån
-    cursor.execute("SELECT COUNT(*) FROM udlaan WHERE bruger_kode=? AND afleveret_dato IS NULL", (kode,))
-    active = cursor.fetchone()[0]
-    if active > 0:
+    cursor.execute("SELECT COUNT(*) FROM udlaan WHERE bruger_kode = ? AND afleveret_dato IS NULL", (kode,))
+    aktive = cursor.fetchone()[0]
+    if aktive > 0:
         flash("Kan ikke slette bruger med aktive udlån")
         return redirect(url_for('admin'))
-    cursor.execute("DELETE FROM brugere WHERE kode=?", (kode,))
+
+    cursor.execute("DELETE FROM brugere WHERE kode = ?", (kode,))
     db.commit()
-    flash(f"Bruger '{kode}' slettet")
+    flash(f"Bruger {kode} slettet")
     return redirect(url_for('admin'))
 
-@app.route('/admin/upload_brugere', methods=['POST'])
+# --- ADMIN REDIGER OG SLET BOG ---
+@app.route('/admin/boeger/<kode>', methods=['POST'])
 @admin_required
-def upload_brugere():
-    if 'file' not in request.files:
-        flash("Ingen fil valgt")
-        return redirect(url_for('admin'))
-    file = request.files['file']
-    if file.filename == '':
-        flash("Ingen fil valgt")
-        return redirect(url_for('admin'))
-    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
-    reader = csv.reader(stream)
+def admin_edit_bog(kode):
+    titel = request.form['titel']
     db = get_db()
     cursor = db.cursor()
-    count = 0
-    for row in reader:
-        if len(row) >= 2:
-            kode, navn = row[0].strip(), row[1].strip()
-            if kode and navn:
-                try:
-                    cursor.execute("INSERT INTO brugere (kode, navn) VALUES (?, ?)", (kode, navn))
-                    count += 1
-                except sqlite3.IntegrityError:
-                    pass
+    cursor.execute("UPDATE boeger SET titel = ? WHERE kode = ?", (titel, kode))
     db.commit()
-    flash(f"{count} brugere importeret")
+    flash(f"Bog {kode} opdateret")
     return redirect(url_for('admin'))
 
-# --- Bog funktioner ---
-
-@app.route('/admin/add_bog', methods=['POST'])
+@app.route('/admin/boeger/<kode>/delete', methods=['POST'])
 @admin_required
-def add_bog():
-    kode = request.form['kode'].strip()
-    titel = request.form['titel'].strip()
-    if not kode or not titel:
-        flash("Kode og titel er påkrævet")
-        return redirect(url_for('admin'))
+def admin_delete_bog(kode):
     db = get_db()
     cursor = db.cursor()
-    try:
-        cursor.execute("INSERT INTO boeger (kode, titel) VALUES (?, ?)", (kode, titel))
-        db.commit()
-        flash(f"Bog '{titel}' tilføjet")
-    except sqlite3.IntegrityError:
-        flash(f"Bog med kode '{kode}' findes allerede")
-    return redirect(url_for('admin'))
-
-@app.route('/admin/edit_bog', methods=['POST'])
-@admin_required
-def edit_bog():
-    kode = request.form['kode'].strip()
-    titel = request.form['titel'].strip()
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("UPDATE boeger SET titel=? WHERE kode=?", (titel, kode))
-    db.commit()
-    flash(f"Bog '{kode}' opdateret")
-    return redirect(url_for('admin'))
-
-@app.route('/admin/delete_bog')
-@admin_required
-def delete_bog():
-    kode = request.args.get('kode')
-    if not kode:
-        flash("Manglende bog kode")
-        return redirect(url_for('admin'))
-    db = get_db()
-    cursor = db.cursor()
-    # Tjek om bogen er udlånt
-    cursor.execute("SELECT COUNT(*) FROM udlaan WHERE bog_kode=? AND afleveret_dato IS NULL", (kode,))
-    active = cursor.fetchone()[0]
-    if active > 0:
+    cursor.execute("SELECT COUNT(*) FROM udlaan WHERE bog_kode = ? AND afleveret_dato IS NULL", (kode,))
+    aktive = cursor.fetchone()[0]
+    if aktive > 0:
         flash("Kan ikke slette bog med aktive udlån")
         return redirect(url_for('admin'))
-    cursor.execute("DELETE FROM boeger WHERE kode=?", (kode,))
+
+    cursor.execute("DELETE FROM boeger WHERE kode = ?", (kode,))
     db.commit()
-    flash(f"Bog '{kode}' slettet")
+    flash(f"Bog {kode} slettet")
     return redirect(url_for('admin'))
 
-@app.route('/admin/upload_boeger', methods=['POST'])
+# --- UPLOAD CSV FOR BRUGERE ---
+@app.route('/admin/upload/brugere', methods=['POST'])
 @admin_required
-def upload_boeger():
-    if 'file' not in request.files:
+def admin_upload_brugere():
+    if 'csvfile' not in request.files:
         flash("Ingen fil valgt")
         return redirect(url_for('admin'))
-    file = request.files['file']
+    file = request.files['csvfile']
     if file.filename == '':
         flash("Ingen fil valgt")
         return redirect(url_for('admin'))
     stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
-    reader = csv.reader(stream)
+    csv_input = csv.reader(stream)
     db = get_db()
     cursor = db.cursor()
     count = 0
-    for row in reader:
-        if len(row) >= 2:
-            kode, titel = row[0].strip(), row[1].strip()
-            if kode and titel:
-                try:
-                    cursor.execute("INSERT INTO boeger (kode, titel) VALUES (?, ?)", (kode, titel))
-                    count += 1
-                except sqlite3.IntegrityError:
-                    pass
+    for row in csv_input:
+        if len(row) < 2:
+            continue
+        kode, navn = row[0].strip(), row[1].strip()
+        try:
+            cursor.execute("INSERT INTO brugere (kode, navn) VALUES (?, ?)", (kode, navn))
+            count += 1
+        except sqlite3.IntegrityError:
+            cursor.execute("UPDATE brugere SET navn = ? WHERE kode = ?", (navn, kode))
     db.commit()
-    flash(f"{count} bøger importeret")
+    flash(f"{count} brugere importeret/opdateret")
     return redirect(url_for('admin'))
 
-# --- Main app starter her ---
+# --- UPLOAD CSV FOR BØGER ---
+@app.route('/admin/upload/boeger', methods=['POST'])
+@admin_required
+def admin_upload_boeger():
+    if 'csvfile' not in request.files:
+        flash("Ingen fil valgt")
+        return redirect(url_for('admin'))
+    file = request.files['csvfile']
+    if file.filename == '':
+        flash("Ingen fil valgt")
+        return redirect(url_for('admin'))
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    csv_input = csv.reader(stream)
+    db = get_db()
+    cursor = db.cursor()
+    count = 0
+    for row in csv_input:
+        if len(row) < 2:
+            continue
+        kode, titel = row[0].strip(), row[1].strip()
+        try:
+            cursor.execute("INSERT INTO boeger (kode, titel) VALUES (?, ?)", (kode, titel))
+            count += 1
+        except sqlite3.IntegrityError:
+            cursor.execute("UPDATE boeger SET titel = ? WHERE kode = ?", (titel, kode))
+    db.commit()
+    flash(f"{count} bøger importeret/opdateret")
+    return redirect(url_for('admin'))
 
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+if __name__ == '__main__':
+    app.run(debug=True)
