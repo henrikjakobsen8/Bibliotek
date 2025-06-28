@@ -201,7 +201,7 @@ def admin():
             <li><a href="/admin/logout">Log ud</a></li>
         </ul>
     ''')
-
+@app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
         brugernavn = request.form.get('username')
