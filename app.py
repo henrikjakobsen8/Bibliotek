@@ -1,73 +1,263 @@
 import sqlite3
 import datetime
 import os
-from flask import Flask, request, render_template_string, redirect, url_for, flash, g
+from flask import Flask, request, render_template_string, redirect, url_for, flash, g, session, send_file
+import csv
+import io
 
 app = Flask(__name__)
-app.secret_key = 'hemmelig_nogler'
+app.secret_key = 'hemmelig_nogler'  # Skift til noget sikkert i produktion
 
 DATABASE = 'bibliotek.db'
 
-# HTML Template med designinspiration fra Vejlefjordskolen
+# --- Admin login data (simpelt setup) ---
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "bibliotek123"
+
+# HTML-template med responsivt design + alle funktioner
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="da">
 <head>
-    <meta charset="UTF-8">
-    <title>Bibliotek - Udlånssystem</title>
+    <meta charset="UTF-8" />
+    <title>Bibliotek Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; }
-        header { background-color: #2a5d3b; padding: 20px; color: white; text-align: center; }
-        main { padding: 20px; max-width: 600px; margin: auto; }
-        form { background-color: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        input[type="text"], select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        input[type="submit"] { background-color: #2a5d3b; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
-        input[type="submit"]:hover { background-color: #244e33; }
-        .message { padding: 10px; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 20px; }
-        a { color: #2a5d3b; text-decoration: none; display: inline-block; margin-top: 10px; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin:0; padding:0; }
+        header { background-color: #2a5d3b; padding: 1rem; color: white; text-align: center; }
+        main { padding: 1rem; max-width: 900px; margin: auto; }
+        h1, h2 { color: #2a5d3b; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+        th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+        th { background-color: #d8e4d8; }
+        input[type="text"], input[type="password"], select {
+            padding: 0.4rem; margin-bottom: 0.5rem; width: 100%; max-width: 300px;
+            border-radius: 4px; border: 1px solid #ccc;
+        }
+        button, input[type="submit"] {
+            background-color: #2a5d3b; color: white; border: none; padding: 0.5rem 1rem;
+            border-radius: 4px; cursor: pointer; margin-top: 0.5rem;
+        }
+        button:hover, input[type="submit"]:hover { background-color: #244e33; }
+        .flex-row { display: flex; flex-wrap: wrap; gap: 1rem; }
+        .flex-col { flex: 1 1 300px; }
+        .message { padding: 0.5rem; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 1rem; }
+        nav a { color: white; text-decoration: none; margin-left: 1rem; }
+        nav { text-align: right; margin-bottom: 1rem; }
+        .search-input { max-width: 250px; margin-bottom: 1rem; }
+        @media (max-width: 600px) {
+            .flex-row { flex-direction: column; }
+        }
+        /* Modal styles for confirmation */
+        .modal {
+            display:none; position: fixed; z-index: 1000; left:0; top:0; width:100%; height:100%;
+            overflow:auto; background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe; margin: 15% auto; padding: 1rem; border: 1px solid #888;
+            width: 90%; max-width: 400px; border-radius: 8px;
+        }
+        .modal-buttons { text-align: right; margin-top: 1rem; }
     </style>
+    <script>
+        // Simpel bekræftelse før sletning
+        function confirmDelete(type, kode) {
+            const modal = document.getElementById('modal');
+            const modalText = document.getElementById('modal-text');
+            modal.style.display = 'block';
+            modalText.textContent = `Er du sikker på, at du vil slette ${type} med kode "${kode}"?`;
+            document.getElementById('confirm-delete-btn').onclick = function() {
+                window.location.href = `/admin/delete_${type}?kode=${kode}`;
+            }
+        }
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        // Inline redigering - enable save button
+        function enableSave(btn) {
+            btn.disabled = false;
+        }
+
+        // Søgefunktion for tabeller
+        function searchTable(inputId, tableId) {
+            let input = document.getElementById(inputId);
+            let filter = input.value.toLowerCase();
+            let table = document.getElementById(tableId);
+            let trs = table.getElementsByTagName("tr");
+            for (let i=1; i<trs.length; i++) {
+                let tds = trs[i].getElementsByTagName("td");
+                let found = false;
+                for (let j=0; j<tds.length; j++) {
+                    if (tds[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                        found = true;
+                        break;
+                    }
+                }
+                trs[i].style.display = found ? "" : "none";
+            }
+        }
+    </script>
 </head>
 <body>
-    <header>
-        <h1>Bibliotekets Udlånssystem</h1>
-    </header>
-    <main>
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            {% for message in messages %}
-              <div class="message">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+<header>
+    <h1>Bibliotek Admin</h1>
+    <nav>
+        <a href="/">Til Udlån</a>
+        <a href="/admin/logout" style="color:#ff9999;">Log ud</a>
+    </nav>
+</header>
+<main>
 
-        <form method="POST" action="/udlaan">
-            <h2>Udlån af bog</h2>
-            <label>Bruger stregkode:</label>
-            <input type="text" name="bruger" required>
-            <label>Bog stregkode:</label>
-            <input type="text" name="bog" required>
-            <input type="submit" value="Udlån">
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    {% for message in messages %}
+      <div class="message">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<h2>Brugere <input id="userSearch" class="search-input" type="text" placeholder="Søg brugere..." onkeyup="searchTable('userSearch', 'userTable')" /></h2>
+<table id="userTable" aria-label="Brugerliste">
+<thead>
+    <tr><th>Kode</th><th>Navn</th><th>Aktuelle Udlån</th><th>Rediger</th><th>Slet</th></tr>
+</thead>
+<tbody>
+    {% for kode, navn, udlaan_antal in brugere %}
+    <tr>
+        <form method="POST" action="/admin/edit_bruger">
+        <td>{{ kode }}<input type="hidden" name="kode" value="{{ kode }}"></td>
+        <td><input type="text" name="navn" value="{{ navn }}" oninput="enableSave(this.form.querySelector('button'))" required></td>
+        <td>{{ udlaan_antal }}</td>
+        <td><button type="submit" disabled>Gem</button></td>
+        <td><button type="button" onclick="confirmDelete('bruger', '{{ kode }}')">Slet</button></td>
         </form>
+    </tr>
+    {% endfor %}
+</tbody>
+</table>
 
-        <form method="POST" action="/aflevering">
-            <h2>Aflever bog</h2>
-            <label>Bog stregkode:</label>
-            <input type="text" name="bog" required>
-            <input type="submit" value="Aflever">
+<h3>Tilføj ny bruger</h3>
+<form method="POST" action="/admin/add_bruger" enctype="multipart/form-data">
+    <input type="text" name="kode" placeholder="Bruger stregkode" required maxlength="50" />
+    <input type="text" name="navn" placeholder="Brugernavn" required maxlength="100" />
+    <button type="submit">Tilføj bruger</button>
+</form>
+<form method="POST" action="/admin/upload_brugere" enctype="multipart/form-data" style="margin-top: 1rem;">
+    <label>Upload CSV (kode, navn):</label><br />
+    <input type="file" name="file" accept=".csv" required />
+    <button type="submit">Upload brugere</button>
+</form>
+
+<hr />
+
+<h2>Bøger <input id="bookSearch" class="search-input" type="text" placeholder="Søg bøger..." onkeyup="searchTable('bookSearch', 'bookTable')" /></h2>
+<table id="bookTable" aria-label="Bogliste">
+<thead>
+    <tr><th>Kode</th><th>Titel</th><th>Aktuelle Udlån</th><th>Rediger</th><th>Slet</th></tr>
+</thead>
+<tbody>
+    {% for kode, titel, udlaan_antal in boeger %}
+    <tr>
+        <form method="POST" action="/admin/edit_bog">
+        <td>{{ kode }}<input type="hidden" name="kode" value="{{ kode }}"></td>
+        <td><input type="text" name="titel" value="{{ titel }}" oninput="enableSave(this.form.querySelector('button'))" required></td>
+        <td>{{ udlaan_antal }}</td>
+        <td><button type="submit" disabled>Gem</button></td>
+        <td><button type="button" onclick="confirmDelete('bog', '{{ kode }}')">Slet</button></td>
         </form>
+    </tr>
+    {% endfor %}
+</tbody>
+</table>
 
-        <a href="/udlaan-oversigt">Se aktuelle udlån</a><br>
-        <a href="/admin">Adminside</a>
-    </main>
+<h3>Tilføj ny bog</h3>
+<form method="POST" action="/admin/add_bog" enctype="multipart/form-data">
+    <input type="text" name="kode" placeholder="Bog stregkode" required maxlength="50" />
+    <input type="text" name="titel" placeholder="Bogtitel" required maxlength="200" />
+    <button type="submit">Tilføj bog</button>
+</form>
+<form method="POST" action="/admin/upload_boeger" enctype="multipart/form-data" style="margin-top: 1rem;">
+    <label>Upload CSV (kode, titel):</label><br />
+    <input type="file" name="file" accept=".csv" required />
+    <button type="submit">Upload bøger</button>
+</form>
+
+<hr />
+
+<h2>Udlåns-historik</h2>
+<form method="GET" action="/admin" style="margin-bottom: 1rem;">
+    <input type="text" name="filter" placeholder="Søg efter bruger, bog eller dato" style="width: 300px;" value="{{ request.args.get('filter', '') }}" />
+    <button type="submit">Søg</button>
+</form>
+<table aria-label="Udlåns Historik">
+<thead>
+    <tr>
+        <th>Bruger</th><th>Bog</th><th>Udlån Dato</th><th>Afleveret Dato</th>
+    </tr>
+</thead>
+<tbody>
+    {% for bruger, bog, udlaan_dato, afleveret_dato in historik %}
+    <tr>
+        <td>{{ bruger }}</td>
+        <td>{{ bog }}</td>
+        <td>{{ udlaan_dato[:10] }}</td>
+        <td>{% if afleveret_dato %}{{ afleveret_dato[:10] }}{% else %}Ikke afleveret{% endif %}</td>
+    </tr>
+    {% endfor %}
+</tbody>
+</table>
+
+<!-- Modal for slet -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <p id="modal-text"></p>
+    <div class="modal-buttons">
+      <button onclick="closeModal()">Annuller</button>
+      <button id="confirm-delete-btn">Slet</button>
+    </div>
+  </div>
+</div>
+
+</main>
 </body>
 </html>
 '''
 
+LOGIN_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8" />
+    <title>Admin Login</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;}
+        form { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 300px;}
+        input { width: 100%; padding: 0.5rem; margin: 0.5rem 0; border-radius: 4px; border: 1px solid #ccc; }
+        button { background-color: #2a5d3b; color: white; border: none; padding: 0.5rem; width: 100%; border-radius: 4px; cursor: pointer;}
+        button:hover { background-color: #244e33;}
+        .error { color: red; }
+    </style>
+</head>
+<body>
+<form method="POST">
+    <h2>Admin Login</h2>
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+    <input type="text" name="username" placeholder="Brugernavn" required autofocus />
+    <input type="password" name="password" placeholder="Adgangskode" required />
+    <button type="submit">Log ind</button>
+</form>
+</body>
+</html>
+'''
 
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
+        db.row_factory = sqlite3.Row
     return db
 
 @app.teardown_appcontext
@@ -93,172 +283,106 @@ def init_db():
 
 init_db()
 
-def find_i_db(tabel, kode):
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute(f"SELECT * FROM {tabel} WHERE kode = ?", (kode,))
-    return cursor.fetchone()
+def admin_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('admin_logged_in'):
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
-def bog_udlaant(kode):
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM udlaan WHERE bog_kode = ? AND afleveret_dato IS NULL", (kode,))
-    return cursor.fetchone() is not None
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    error = None
+    if request.method == 'POST':
+        if (request.form['username'] == ADMIN_USERNAME and
+            request.form['password'] == ADMIN_PASSWORD):
+            session['admin_logged_in'] = True
+            return redirect(url_for('admin'))
+        else:
+            error = "Forkert brugernavn eller adgangskode"
+    return render_template_string(LOGIN_TEMPLATE, error=error)
 
-@app.route('/')
-def index():
-    return render_template_string(HTML_TEMPLATE)
+@app.route('/admin/logout')
+def admin_logout():
+    session.clear()
+    flash("Du er nu logget ud.")
+    return redirect(url_for('admin_login'))
 
-@app.route('/udlaan', methods=['POST'])
-def udlaan():
-    bruger = request.form['bruger']
-    bog = request.form['bog']
-
-    if not find_i_db('brugere', bruger):
-        flash("Bruger ikke fundet")
-        return redirect(url_for('index'))
-    if not find_i_db('boeger', bog):
-        flash("Bog ikke fundet")
-        return redirect(url_for('index'))
-    if bog_udlaant(bog):
-        flash("Bog er allerede udlånt")
-        return redirect(url_for('index'))
-
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("INSERT INTO udlaan (bruger_kode, bog_kode, udlaan_dato, afleveret_dato) VALUES (?, ?, ?, NULL)",
-                   (bruger, bog, datetime.datetime.now().isoformat()))
-    db.commit()
-    flash("Udlån registreret")
-    return redirect(url_for('index'))
-
-@app.route('/aflevering', methods=['POST'])
-def aflevering():
-    bog = request.form['bog']
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("UPDATE udlaan SET afleveret_dato = ? WHERE bog_kode = ? AND afleveret_dato IS NULL",
-                   (datetime.datetime.now().isoformat(), bog))
-    if cursor.rowcount > 0:
-        db.commit()
-        flash("Aflevering registreret")
-    else:
-        flash("Bog er ikke udlånt")
-    return redirect(url_for('index'))
-
-@app.route('/udlaan-oversigt')
-def udlaan_oversigt():
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("""
-        SELECT u.bog_kode, u.bruger_kode, u.udlaan_dato, b.titel, br.navn
-        FROM udlaan u
-        LEFT JOIN boeger b ON u.bog_kode = b.kode
-        LEFT JOIN brugere br ON u.bruger_kode = br.kode
-        WHERE u.afleveret_dato IS NULL
-    """)
-    udlaante = cursor.fetchall()
-
-    html = '''<html><head><title>Udlånsliste</title><style>
-        body { font-family: Segoe UI, sans-serif; background: #f8f9f4; color: #333; padding: 2em; }
-        ul { list-style: none; padding: 0; }
-        li { background: #fff; margin-bottom: 0.5em; padding: 0.5em; border-left: 4px solid #2a5d3b; }
-        a { display: inline-block; margin-top: 1em; color: white; background: #2a5d3b; padding: 0.5em 1em; text-decoration: none; border-radius: 4px; }
-    </style></head><body><h2>Aktuelle udlån</h2><ul>'''
-    for bog_kode, bruger_kode, dato, titel, navn in udlaante:
-        vis_bog = titel or bog_kode
-        vis_bruger = navn or bruger_kode
-        html += f"<li><b>{vis_bog}</b> lånt af <i>{vis_bruger}</i> den {dato[:10]}</li>"
-    html += '</ul><a href="/">Tilbage</a></body></html>'
-    return html
-
-@app.route('/admin', methods=['GET', 'POST'])
+@app.route('/admin')
+@admin_required
 def admin():
     db = get_db()
     cursor = db.cursor()
 
-    cursor.execute("SELECT kode, navn FROM brugere")
+    # Hent brugere + antal aktive udlån pr bruger
+    cursor.execute('''
+        SELECT b.kode, b.navn, 
+        COALESCE((SELECT COUNT(*) FROM udlaan u WHERE u.bruger_kode=b.kode AND u.afleveret_dato IS NULL), 0) AS udlaan_antal
+        FROM brugere b ORDER BY b.navn
+    ''')
     brugere = cursor.fetchall()
-    cursor.execute("SELECT kode, titel FROM boeger")
+
+    # Hent bøger + antal aktive udlån pr bog
+    cursor.execute('''
+        SELECT b.kode, b.titel,
+        COALESCE((SELECT COUNT(*) FROM udlaan u WHERE u.bog_kode=b.kode AND u.afleveret_dato IS NULL), 0) AS udlaan_antal
+        FROM boeger b ORDER BY b.titel
+    ''')
     boeger = cursor.fetchall()
 
-    html = '''<html><head><title>Adminside</title><style>
-    body { font-family: Segoe UI, sans-serif; padding: 2em; background: #f8f9f4; }
-    h2 { color: #2a5d3b; }
-    ul { list-style-type: none; padding: 0; }
-    li { background: #fff; padding: 0.5em; margin: 0.5em 0; border-left: 4px solid #2a5d3b; }
-    form { background: #fff; padding: 1em; margin-top: 1em; border-radius: 6px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
-    input[type=text] { padding: 0.5em; width: 90%; margin-bottom: 0.5em; }
-    input[type=submit] { background: #2a5d3b; color: white; border: none; padding: 0.5em 1em; border-radius: 4px; cursor: pointer; }
-    a { display: inline-block; margin-top: 1em; color: white; background: #2a5d3b; padding: 0.5em 1em; text-decoration: none; border-radius: 4px; }
-    </style></head><body>
-    <h2>Brugere</h2><ul>'''
-    for kode, navn in brugere:
-        html += f"<li>{navn} ({kode}) <form method='POST' action='/slet-bruger' style='display:inline'><input type='hidden' name='kode' value='{kode}'><input type='submit' value='Slet'></form></li>"
-    html += '''</ul><form method="POST" action="/tilfoej-bruger">
-        <h3>Tilføj ny bruger</h3>
-        Navn: <input type="text" name="navn" required><br>
-        Stregkode: <input type="text" name="kode" required><br>
-        <input type="submit" value="Tilføj bruger">
-    </form>
+    # Udlåns-historik med filter (søg efter bruger, bog eller dato)
+    filter_val = request.args.get('filter', '').strip()
+    query = '''
+        SELECT br.navn AS bruger, bo.titel AS bog, u.udlaan_dato, u.afleveret_dato
+        FROM udlaan u
+        LEFT JOIN brugere br ON u.bruger_kode = br.kode
+        LEFT JOIN boeger bo ON u.bog_kode = bo.kode
+    '''
+    params = ()
+    if filter_val:
+        query += '''
+            WHERE br.navn LIKE ? OR bo.titel LIKE ? OR u.udlaan_dato LIKE ? OR u.afleveret_dato LIKE ?
+        '''
+        like_val = f'%{filter_val}%'
+        params = (like_val, like_val, like_val, like_val)
+    query += ' ORDER BY u.udlaan_dato DESC LIMIT 100'
+    cursor.execute(query, params)
+    historik = cursor.fetchall()
 
-    <h2>Bøger</h2><ul>'''
-    for kode, titel in boeger:
-        html += f"<li>{titel} ({kode}) <form method='POST' action='/slet-bog' style='display:inline'><input type='hidden' name='kode' value='{kode}'><input type='submit' value='Slet'></form></li>"
-    html += '''</ul><form method="POST" action="/tilfoej-bog">
-        <h3>Tilføj ny bog</h3>
-        Titel: <input type="text" name="titel" required><br>
-        Stregkode: <input type="text" name="kode" required><br>
-        <input type="submit" value="Tilføj bog">
-    </form>
-    <br><a href="/">Tilbage</a>
-    </body></html>'''
-    return html
+    return render_template_string(HTML_TEMPLATE, brugere=brugere, boeger=boeger, historik=historik, request=request)
 
-@app.route('/tilfoej-bruger', methods=['POST'])
-def tilfoej_bruger():
-    kode = request.form['kode']
-    navn = request.form['navn']
+# --- Bruger funktioner ---
+
+@app.route('/admin/add_bruger', methods=['POST'])
+@admin_required
+def add_bruger():
+    kode = request.form['kode'].strip()
+    navn = request.form['navn'].strip()
+    if not kode or not navn:
+        flash("Kode og navn er påkrævet")
+        return redirect(url_for('admin'))
     db = get_db()
+    cursor = db.cursor()
     try:
-        db.execute("INSERT INTO brugere (kode, navn) VALUES (?, ?)", (kode, navn))
+        cursor.execute("INSERT INTO brugere (kode, navn) VALUES (?, ?)", (kode, navn))
         db.commit()
-        flash("Bruger tilføjet")
+        flash(f"Bruger '{navn}' tilføjet")
     except sqlite3.IntegrityError:
-        flash("Brugeren findes allerede")
+        flash(f"Bruger med kode '{kode}' findes allerede")
     return redirect(url_for('admin'))
 
-@app.route('/tilfoej-bog', methods=['POST'])
-def tilfoej_bog():
-    kode = request.form['kode']
-    titel = request.form['titel']
+@app.route('/admin/edit_bruger', methods=['POST'])
+@admin_required
+def edit_bruger():
+    kode = request.form['kode'].strip()
+    navn = request.form['navn'].strip()
     db = get_db()
-    try:
-        db.execute("INSERT INTO boeger (kode, titel) VALUES (?, ?)", (kode, titel))
-        db.commit()
-        flash("Bog tilføjet")
-    except sqlite3.IntegrityError:
-        flash("Bogen findes allerede")
-    return redirect(url_for('admin'))
-
-@app.route('/slet-bruger', methods=['POST'])
-def slet_bruger():
-    kode = request.form['kode']
-    db = get_db()
-    db.execute("DELETE FROM brugere WHERE kode = ?", (kode,))
+    cursor = db.cursor()
+    cursor.execute("UPDATE brugere SET navn=? WHERE kode=?", (navn, kode))
     db.commit()
-    flash("Bruger slettet")
+    flash(f"Bruger '{kode}' opdateret")
     return redirect(url_for('admin'))
 
-@app.route('/slet-bog', methods=['POST'])
-def slet_bog():
-    kode = request.form['kode']
-    db = get_db()
-    db.execute("DELETE FROM boeger WHERE kode = ?", (kode,))
-    db.commit()
-    flash("Bog slettet")
-    return redirect(url_for('admin'))
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
+@app.route('/admin/del
