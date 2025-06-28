@@ -266,6 +266,42 @@ def opret_bruger():
         {% endwith %}
     ''')
 
+@app.route('/admin/opret-bog', methods=['GET', 'POST'])
+@admin_required
+def opret_bog():
+    if request.method == 'POST':
+        kode = request.form['kode']
+        titel = request.form['titel']
+        db = get_db()
+        cursor = db.cursor()
+        try:
+            cursor.execute("INSERT INTO boeger (kode, titel) VALUES (?, ?)", (kode, titel))
+            db.commit()
+            flash("Bog oprettet")
+        except sqlite3.IntegrityError:
+            flash("Bog med den kode findes allerede")
+        return redirect(url_for('admin'))
+
+    return render_template_string('''
+        <h2>Opret ny bog</h2>
+        <form method="post">
+            <label>Stregkode:</label><br>
+            <input type="text" name="kode" required><br>
+            <label>Titel:</label><br>
+            <input type="text" name="titel" required><br><br>
+            <input type="submit" value="Opret">
+        </form>
+        <a href="/admin">Tilbage til adminside</a>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <p style="color:green;">{{ message }}</p>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    ''')
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
