@@ -189,9 +189,13 @@ def udlaan_oversigt():
 
 # Rute: Admin login
 @app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    ...
+    
 @app.route('/admin')
 @admin_required
 def admin():
+    ...
     return render_template_string('''
         <h2>Velkommen til Adminsiden</h2>
         <ul>
