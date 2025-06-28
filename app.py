@@ -1,11 +1,10 @@
 import sqlite3
 import datetime
 import os
-from flask import Flask, request, render_template_string, redirect, url_for, flash, g, session
-from functools import wraps
+from flask import Flask, request, render_template_string, redirect, url_for, flash, g
 
 app = Flask(__name__)
-app.secret_key = 'hemmelig_nogler'  # Skift til en stærk nøgle i produktion
+app.secret_key = 'hemmelig_nogler'
 
 DATABASE = 'bibliotek.db'
 
@@ -64,17 +63,7 @@ HTML_TEMPLATE = '''
 </html>
 '''
 
-# Decorator til at beskytte admin sider
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('admin_logged_in'):
-            flash("Du skal være logget ind som admin")
-            return redirect(url_for('admin_login'))
-        return f(*args, **kwargs)
-    return decorated_function
 
-# Database-forbindelse
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -116,12 +105,10 @@ def bog_udlaant(kode):
     cursor.execute("SELECT * FROM udlaan WHERE bog_kode = ? AND afleveret_dato IS NULL", (kode,))
     return cursor.fetchone() is not None
 
-# Rute: Forside
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
 
-# Rute: Udlån
 @app.route('/udlaan', methods=['POST'])
 def udlaan():
     bruger = request.form['bruger']
@@ -145,7 +132,6 @@ def udlaan():
     flash("Udlån registreret")
     return redirect(url_for('index'))
 
-# Rute: Aflevering
 @app.route('/aflevering', methods=['POST'])
 def aflevering():
     bog = request.form['bog']
@@ -160,7 +146,6 @@ def aflevering():
         flash("Bog er ikke udlånt")
     return redirect(url_for('index'))
 
-# Rute: Aktuelle udlån
 @app.route('/udlaan-oversigt')
 def udlaan_oversigt():
     db = get_db()
@@ -187,37 +172,92 @@ def udlaan_oversigt():
     html += '</ul><a href="/">Tilbage</a></body></html>'
     return html
 
-# Rute: Admin login
-@app.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        brugernavn = request.form.get('username')
-        kodeord = request.form.get('password')
-        if brugernavn == 'admin' and kodeord == 'admin':
-            session['admin_logged_in'] = True
-            flash('Du er nu logget ind som admin')
-            return redirect(url_for('admin'))
-        else:
-            flash('Forkert brugernavn eller kodeord')
-            return redirect(url_for('admin_login'))
-    return render_template_string('''
-        <h2>Admin Login</h2>
-        <form method="post">
-            <label>Brugernavn:</label><br>
-            <input type="text" name="username" required><br>
-            <label>Kodeord:</label><br>
-            <input type="password" name="password" required><br><br>
-            <input type="submit" value="Log ind">
-        </form>
-        <a href="/">Tilbage til forsiden</a>
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            {% for message in messages %}
-              <p style="color:red;">{{ message }}</p>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-    ''')
+@app.route('/admin', methods=['GET', 'POST'])
+def admin():
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("SELECT kode, navn FROM brugere")
+    brugere = cursor.fetchall()
+    cursor.execute("SELECT kode, titel FROM boeger")
+    boeger = cursor.fetchall()
+
+    html = '''<html><head><title>Adminside</title><style>
+    body { font-family: Segoe UI, sans-serif; padding: 2em; background: #f8f9f4; }
+    h2 { color: #2a5d3b; }
+    ul { list-style-type: none; padding: 0; }
+    li { background: #fff; padding: 0.5em; margin: 0.5em 0; border-left: 4px solid #2a5d3b; }
+    form { background: #fff; padding: 1em; margin-top: 1em; border-radius: 6px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+    input[type=text] { padding: 0.5em; width: 90%; margin-bottom: 0.5em; }
+    input[type=submit] { background: #2a5d3b; color: white; border: none; padding: 0.5em 1em; border-radius: 4px; cursor: pointer; }
+    a { display: inline-block; margin-top: 1em; color: white; background: #2a5d3b; padding: 0.5em 1em; text-decoration: none; border-radius: 4px; }
+    </style></head><body>
+    <h2>Brugere</h2><ul>'''
+    for kode, navn in brugere:
+        html += f"<li>{navn} ({kode}) <form method='POST' action='/slet-bruger' style='display:inline'><input type='hidden' name='kode' value='{kode}'><input type='submit' value='Slet'></form></li>"
+    html += '''</ul><form method="POST" action="/tilfoej-bruger">
+        <h3>Tilføj ny bruger</h3>
+        Navn: <input type="text" name="navn" required><br>
+        Stregkode: <input type="text" name="kode" required><br>
+        <input type="submit" value="Tilføj bruger">
+    </form>
+
+    <h2>Bøger</h2><ul>'''
+    for kode, titel in boeger:
+        html += f"<li>{titel} ({kode}) <form method='POST' action='/slet-bog' style='display:inline'><input type='hidden' name='kode' value='{kode}'><input type='submit' value='Slet'></form></li>"
+    html += '''</ul><form method="POST" action="/tilfoej-bog">
+        <h3>Tilføj ny bog</h3>
+        Titel: <input type="text" name="titel" required><br>
+        Stregkode: <input type="text" name="kode" required><br>
+        <input type="submit" value="Tilføj bog">
+    </form>
+    <br><a href="/">Tilbage</a>
+    </body></html>'''
+    return html
+
+@app.route('/tilfoej-bruger', methods=['POST'])
+def tilfoej_bruger():
+    kode = request.form['kode']
+    navn = request.form['navn']
+    db = get_db()
+    try:
+        db.execute("INSERT INTO brugere (kode, navn) VALUES (?, ?)", (kode, navn))
+        db.commit()
+        flash("Bruger tilføjet")
+    except sqlite3.IntegrityError:
+        flash("Brugeren findes allerede")
+    return redirect(url_for('admin'))
+
+@app.route('/tilfoej-bog', methods=['POST'])
+def tilfoej_bog():
+    kode = request.form['kode']
+    titel = request.form['titel']
+    db = get_db()
+    try:
+        db.execute("INSERT INTO boeger (kode, titel) VALUES (?, ?)", (kode, titel))
+        db.commit()
+        flash("Bog tilføjet")
+    except sqlite3.IntegrityError:
+        flash("Bogen findes allerede")
+    return redirect(url_for('admin'))
+
+@app.route('/slet-bruger', methods=['POST'])
+def slet_bruger():
+    kode = request.form['kode']
+    db = get_db()
+    db.execute("DELETE FROM brugere WHERE kode = ?", (kode,))
+    db.commit()
+    flash("Bruger slettet")
+    return redirect(url_for('admin'))
+
+@app.route('/slet-bog', methods=['POST'])
+def slet_bog():
+    kode = request.form['kode']
+    db = get_db()
+    db.execute("DELETE FROM boeger WHERE kode = ?", (kode,))
+    db.commit()
+    flash("Bog slettet")
+    return redirect(url_for('admin'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
