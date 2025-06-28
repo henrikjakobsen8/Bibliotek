@@ -8,7 +8,7 @@ app.secret_key = 'hemmelig_nogler'
 
 DATABASE = 'bibliotek.db'
 
-# HTML Template med designinspiration fra Vejlefjordskolen
+# HTML Template med forbedret design inspireret af Vejlefjordskolen
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="da">
@@ -16,15 +16,41 @@ HTML_TEMPLATE = '''
     <meta charset="UTF-8">
     <title>Bibliotek - Udlånssystem</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; }
-        header { background-color: #2a5d3b; padding: 20px; color: white; text-align: center; }
-        main { padding: 20px; max-width: 600px; margin: auto; }
-        form { background-color: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        input[type="text"] { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        input[type="submit"] { background-color: #2a5d3b; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
-        input[type="submit"]:hover { background-color: #244e33; }
-        .message { padding: 10px; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 20px; }
-        a { color: #2a5d3b; text-decoration: none; display: inline-block; margin-top: 10px; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f6f9fc; margin: 0; padding: 0; color: #333; }
+        header { background-color: #004225; padding: 30px 0; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        header h1 { color: white; margin: 0; font-size: 2rem; }
+        main { padding: 40px 20px; max-width: 700px; margin: auto; }
+        form { background-color: white; padding: 25px; margin-bottom: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
+        input[type="submit"] {
+            background-color: #004225;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s ease;
+        }
+        input[type="submit"]:hover {
+            background-color: #00331a;
+        }
+        .message {
+            padding: 12px;
+            background-color: #d4edda;
+            border-left: 6px solid #004225;
+            margin-bottom: 25px;
+            border-radius: 4px;
+        }
+        a {
+            color: #004225;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        h2 { color: #004225; }
     </style>
 </head>
 <body>
@@ -56,7 +82,7 @@ HTML_TEMPLATE = '''
             <input type="submit" value="Aflever">
         </form>
 
-        <a href="/udlaan-oversigt">Se aktuelle udlån</a>
+        <a href="/udlaan-oversigt">📚 Se aktuelle udlån</a>
     </main>
 </body>
 </html>
