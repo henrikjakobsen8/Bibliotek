@@ -108,6 +108,27 @@ def aflevering():
         flash("Ingen udlån registreret endnu")
     return redirect(url_for('index'))
 
+@app.route('/udlaan-oversigt')
+def udlaan_oversigt():
+    udlaante = []
+    if os.path.exists(UDLAAN_FIL):
+        with open(UDLAAN_FIL, newline='') as f:
+            for row in csv.reader(f):
+                if row[3] == '':
+                    bruger = find_i_csv(BRUGERE_FIL, row[0])
+                    bog = find_i_csv(BOEGER_FIL, row[1])
+                    udlaante.append({
+                        'bruger': bruger[1] if bruger else row[0],
+                        'bog': bog[1] if bog else row[1],
+                        'dato': row[2][:10]  # Kun dato
+                    })
+    html = '<h2>Aktuelle udlån</h2><ul>'
+    for u in udlaante:
+        html += f\"<li><b>{u['bog']}</b> lånt af <i>{u['bruger']}</i> den {u['dato']}</li>\"
+    html += '</ul><a href=\"/\">Tilbage</a>'
+    return html
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
