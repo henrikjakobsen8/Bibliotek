@@ -218,6 +218,3 @@ def admin_login():
           {% endif %}
         {% endwith %}
     ''')
-
-# Rute: Admin logout
-@app.route('/
