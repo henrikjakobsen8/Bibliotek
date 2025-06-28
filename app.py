@@ -21,6 +21,7 @@ HTML_TEMPLATE = '''
 </head>
 <body>
     <h1>Bibliotek System</h1>
+    <p><a href="/udlaan-oversigt">📚 Se aktuelle udlån</a></p>
     <form method="POST" action="/udlaan">
         <h3>Udlån</h3>
         Scan bruger: <input name="bruger" required><br>
@@ -120,14 +121,13 @@ def udlaan_oversigt():
                     udlaante.append({
                         'bruger': bruger[1] if bruger else row[0],
                         'bog': bog[1] if bog else row[1],
-                        'dato': row[2][:10]  # Kun dato
+                        'dato': row[2][:10]
                     })
     html = '<h2>Aktuelle udlån</h2><ul>'
     for u in udlaante:
-        html += f\"<li><b>{u['bog']}</b> lånt af <i>{u['bruger']}</i> den {u['dato']}</li>\"
-    html += '</ul><a href=\"/\">Tilbage</a>'
+        html += f"<li><b>{u['bog']}</b> lånt af <i>{u['bruger']}</i> den {u['dato']}</li>"
+    html += '</ul><a href="/">Tilbage</a>'
     return html
-
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
