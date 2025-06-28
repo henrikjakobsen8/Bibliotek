@@ -198,6 +198,7 @@ def admin():
             <li><a href="/admin/opret-bruger">Opret bruger</a></li>
             <li><a href="/admin/opret-bog">Opret bog</a></li>
             <li><a href="/">Tilbage til forsiden</a></li>
+            <li><a href="/admin/logout">Log ud</a></li>
         </ul>
     ''')
 
@@ -300,6 +301,12 @@ def opret_bog():
           {% endif %}
         {% endwith %}
     ''')
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    flash("Du er nu logget ud")
+    return redirect(url_for('index'))
 
 
 if __name__ == '__main__':
