@@ -189,6 +189,18 @@ def udlaan_oversigt():
 
 # Rute: Admin login
 @app.route('/admin/login', methods=['GET', 'POST'])
+@app.route('/admin')
+@admin_required
+def admin():
+    return render_template_string('''
+        <h2>Velkommen til Adminsiden</h2>
+        <ul>
+            <li><a href="/admin/opret-bruger">Opret bruger</a></li>
+            <li><a href="/admin/opret-bog">Opret bog</a></li>
+            <li><a href="/">Tilbage til forsiden</a></li>
+        </ul>
+    ''')
+
 def admin_login():
     if request.method == 'POST':
         brugernavn = request.form.get('username')
