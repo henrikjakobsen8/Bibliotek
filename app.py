@@ -186,11 +186,6 @@ def udlaan_oversigt():
         html += f"<li><b>{vis_bog}</b> lånt af <i>{vis_bruger}</i> den {dato[:10]}</li>"
     html += '</ul><a href="/">Tilbage</a></body></html>'
     return html
-
-# Rute: Admin login
-@app.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
-    ...
     
 @app.route('/admin')
 @admin_required
