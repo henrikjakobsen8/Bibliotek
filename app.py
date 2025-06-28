@@ -1,156 +1,59 @@
-import csv
+import sqlite3
 import datetime
 import os
-from flask import Flask, request, render_template_string, redirect, url_for, flash
+from flask import Flask, request, render_template_string, redirect, url_for, flash, g
 
 app = Flask(__name__)
 app.secret_key = 'hemmelig_nogler'
 
-BRUGERE_FIL = 'data/brugere.csv'
-BOEGER_FIL = 'data/boeger.csv'
-UDLAAN_FIL = 'data/udlaan.csv'
-
-os.makedirs('data', exist_ok=True)
+DATABASE = 'bibliotek.db'
 
 # HTML Template med designinspiration fra Vejlefjordskolen
-HTML_TEMPLATE = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Bibliotek System</title>
-    <style>
-        :root {
-            --primær-bg: #f8f9f4;
-            --accent: #2a5d3b;
-            --text-color: #333;
-        }
-        body {
-            background: var(--primær-bg);
-            color: var(--text-color);
-            font-family: 'Segoe UI', sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-        header {
-            background: var(--accent);
-            color: white;
-            padding: 1em;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        nav a {
-            color: white;
-            margin: 0 1em;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .hero {
-            padding: 2em;
-            background: #e8ede5;
-            text-align: center;
-        }
-        .container {
-            max-width: 800px;
-            margin: auto;
-            padding: 2em;
-        }
-        form {
-            background: white;
-            padding: 1em;
-            margin-bottom: 1em;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.05);
-        }
-        input, button {
-            padding: 0.5em;
-            margin: 0.5em 0;
-            width: 100%;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        button {
-            background: var(--accent);
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        button:hover {
-            background: #244a31;
-        }
-        ul {
-            list-style: none;
-            padding: 0;
-        }
-        li {
-            background: #fff;
-            margin-bottom: 0.5em;
-            padding: 0.5em;
-            border-left: 4px solid var(--accent);
-        }
-        .message {
-            background: #fff3cd;
-            padding: 1em;
-            margin-bottom: 1em;
-            border-left: 4px solid #ffeeba;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>📚 Bibliotek</h1>
-        <nav>
-            <a href="/">Start</a>
-            <a href="/udlaan-oversigt">Udlånsliste</a>
-        </nav>
-    </header>
-    <section class="hero">
-        <h2>Velkommen til Bibliotekssystemet</h2>
-        <p>Scan, lån og aflever – nemt og hurtigt.</p>
-    </section>
-    <div class="container">
-        <form method="POST" action="/udlaan">
-            <h3>📤 Udlån</h3>
-            Scan bruger: <input name="bruger" required><br>
-            Scan bog: <input name="bog" required><br>
-            <button type="submit">Udlån</button>
-        </form>
+HTML_TEMPLATE = '''...'''  # (forkortet for læsbarhed)
 
-        <form method="POST" action="/aflevering">
-            <h3>📥 Aflevering</h3>
-            Scan bog: <input name="bog" required><br>
-            <button type="submit">Aflever</button>
-        </form>
 
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            <div class="message">
-              {% for message in messages %}
-                <p>{{ message }}</p>
-              {% endfor %}
-            </div>
-          {% endif %}
-        {% endwith %}
-    </div>
-</body>
-</html>
-'''
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(DATABASE)
+    return db
 
-def find_i_csv(fil, kode):
-    if not os.path.exists(fil): return None
-    with open(fil, newline='') as f:
-        for row in csv.reader(f):
-            if row and row[0] == kode:
-                return row
-    return None
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
+
+
+def init_db():
+    with app.app_context():
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute('''CREATE TABLE IF NOT EXISTS brugere (kode TEXT PRIMARY KEY, navn TEXT)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS boeger (kode TEXT PRIMARY KEY, titel TEXT)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS udlaan (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            bruger_kode TEXT,
+            bog_kode TEXT,
+            udlaan_dato TEXT,
+            afleveret_dato TEXT
+        )''')
+        db.commit()
+
+init_db()
+
+
+def find_i_db(tabel, kode):
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute(f"SELECT * FROM {tabel} WHERE kode = ?", (kode,))
+    return cursor.fetchone()
 
 def bog_udlaant(kode):
-    if not os.path.exists(UDLAAN_FIL): return False
-    with open(UDLAAN_FIL, newline='') as f:
-        for row in csv.reader(f):
-            if row[1] == kode and row[3] == '':
-                return True
-    return False
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM udlaan WHERE bog_kode = ? AND afleveret_dato IS NULL", (kode,))
+    return cursor.fetchone() is not None
 
 @app.route('/')
 def index():
@@ -161,65 +64,61 @@ def udlaan():
     bruger = request.form['bruger']
     bog = request.form['bog']
 
-    if not find_i_csv(BRUGERE_FIL, bruger):
+    if not find_i_db('brugere', bruger):
         flash("Bruger ikke fundet")
         return redirect(url_for('index'))
-    if not find_i_csv(BOEGER_FIL, bog):
+    if not find_i_db('boeger', bog):
         flash("Bog ikke fundet")
         return redirect(url_for('index'))
     if bog_udlaant(bog):
         flash("Bog er allerede udlånt")
         return redirect(url_for('index'))
 
-    with open(UDLAAN_FIL, 'a', newline='') as f:
-        csv.writer(f).writerow([bruger, bog, datetime.datetime.now().isoformat(), ''])
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("INSERT INTO udlaan (bruger_kode, bog_kode, udlaan_dato, afleveret_dato) VALUES (?, ?, ?, NULL)",
+                   (bruger, bog, datetime.datetime.now().isoformat()))
+    db.commit()
     flash("Udlån registreret")
     return redirect(url_for('index'))
 
 @app.route('/aflevering', methods=['POST'])
 def aflevering():
     bog = request.form['bog']
-    rows = []
-    found = False
-    if os.path.exists(UDLAAN_FIL):
-        with open(UDLAAN_FIL, newline='') as f:
-            for row in csv.reader(f):
-                if row[1] == bog and row[3] == '':
-                    row[3] = datetime.datetime.now().isoformat()
-                    found = True
-                rows.append(row)
-        if found:
-            with open(UDLAAN_FIL, 'w', newline='') as f:
-                csv.writer(f).writerows(rows)
-            flash("Aflevering registreret")
-        else:
-            flash("Bog er ikke udlånt")
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("UPDATE udlaan SET afleveret_dato = ? WHERE bog_kode = ? AND afleveret_dato IS NULL",
+                   (datetime.datetime.now().isoformat(), bog))
+    if cursor.rowcount > 0:
+        db.commit()
+        flash("Aflevering registreret")
     else:
-        flash("Ingen udlån registreret endnu")
+        flash("Bog er ikke udlånt")
     return redirect(url_for('index'))
 
 @app.route('/udlaan-oversigt')
 def udlaan_oversigt():
-    udlaante = []
-    if os.path.exists(UDLAAN_FIL):
-        with open(UDLAAN_FIL, newline='') as f:
-            for row in csv.reader(f):
-                if row[3] == '':
-                    bruger = find_i_csv(BRUGERE_FIL, row[0])
-                    bog = find_i_csv(BOEGER_FIL, row[1])
-                    udlaante.append({
-                        'bruger': bruger[1] if bruger else row[0],
-                        'bog': bog[1] if bog else row[1],
-                        'dato': row[2][:10]
-                    })
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("""
+        SELECT u.bog_kode, u.bruger_kode, u.udlaan_dato, b.titel, br.navn
+        FROM udlaan u
+        LEFT JOIN boeger b ON u.bog_kode = b.kode
+        LEFT JOIN brugere br ON u.bruger_kode = br.kode
+        WHERE u.afleveret_dato IS NULL
+    """)
+    udlaante = cursor.fetchall()
+
     html = '''<html><head><title>Udlånsliste</title><style>
         body { font-family: Segoe UI, sans-serif; background: #f8f9f4; color: #333; padding: 2em; }
         ul { list-style: none; padding: 0; }
         li { background: #fff; margin-bottom: 0.5em; padding: 0.5em; border-left: 4px solid #2a5d3b; }
         a { display: inline-block; margin-top: 1em; color: white; background: #2a5d3b; padding: 0.5em 1em; text-decoration: none; border-radius: 4px; }
     </style></head><body><h2>Aktuelle udlån</h2><ul>'''
-    for u in udlaante:
-        html += f"<li><b>{u['bog']}</b> lånt af <i>{u['bruger']}</i> den {u['dato']}</li>"
+    for bog_kode, bruger_kode, dato, titel, navn in udlaante:
+        vis_bog = titel or bog_kode
+        vis_bruger = navn or bruger_kode
+        html += f"<li><b>{vis_bog}</b> lånt af <i>{vis_bruger}</i> den {dato[:10]}</li>"
     html += '</ul><a href="/">Tilbage</a></body></html>'
     return html
 
