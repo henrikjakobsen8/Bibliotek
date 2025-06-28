@@ -8,7 +8,7 @@ app.secret_key = 'hemmelig_nogler'
 
 DATABASE = 'bibliotek.db'
 
-# HTML Template med forbedret design inspireret af Vejlefjordskolen
+# HTML Template med designinspiration fra Vejlefjordskolen
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="da">
@@ -16,41 +16,15 @@ HTML_TEMPLATE = '''
     <meta charset="UTF-8">
     <title>Bibliotek - Udlånssystem</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f6f9fc; margin: 0; padding: 0; color: #333; }
-        header { background-color: #004225; padding: 30px 0; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        header h1 { color: white; margin: 0; font-size: 2rem; }
-        main { padding: 40px 20px; max-width: 700px; margin: auto; }
-        form { background-color: white; padding: 25px; margin-bottom: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
-        input[type="submit"] {
-            background-color: #004225;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.3s ease;
-        }
-        input[type="submit"]:hover {
-            background-color: #00331a;
-        }
-        .message {
-            padding: 12px;
-            background-color: #d4edda;
-            border-left: 6px solid #004225;
-            margin-bottom: 25px;
-            border-radius: 4px;
-        }
-        a {
-            color: #004225;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        h2 { color: #004225; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; }
+        header { background-color: #2a5d3b; padding: 20px; color: white; text-align: center; }
+        main { padding: 20px; max-width: 600px; margin: auto; }
+        form { background-color: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input[type="text"], select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="submit"] { background-color: #2a5d3b; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        input[type="submit"]:hover { background-color: #244e33; }
+        .message { padding: 10px; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 20px; }
+        a { color: #2a5d3b; text-decoration: none; display: inline-block; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -82,7 +56,8 @@ HTML_TEMPLATE = '''
             <input type="submit" value="Aflever">
         </form>
 
-        <a href="/udlaan-oversigt">📚 Se aktuelle udlån</a>
+        <a href="/udlaan-oversigt">Se aktuelle udlån</a><br>
+        <a href="/admin">Adminside</a>
     </main>
 </body>
 </html>
@@ -101,7 +76,6 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
-
 def init_db():
     with app.app_context():
         db = get_db()
@@ -118,7 +92,6 @@ def init_db():
         db.commit()
 
 init_db()
-
 
 def find_i_db(tabel, kode):
     db = get_db()
@@ -198,6 +171,93 @@ def udlaan_oversigt():
         html += f"<li><b>{vis_bog}</b> lånt af <i>{vis_bruger}</i> den {dato[:10]}</li>"
     html += '</ul><a href="/">Tilbage</a></body></html>'
     return html
+
+@app.route('/admin', methods=['GET', 'POST'])
+def admin():
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("SELECT kode, navn FROM brugere")
+    brugere = cursor.fetchall()
+    cursor.execute("SELECT kode, titel FROM boeger")
+    boeger = cursor.fetchall()
+
+    html = '''<html><head><title>Adminside</title><style>
+    body { font-family: Segoe UI, sans-serif; padding: 2em; background: #f8f9f4; }
+    h2 { color: #2a5d3b; }
+    ul { list-style-type: none; padding: 0; }
+    li { background: #fff; padding: 0.5em; margin: 0.5em 0; border-left: 4px solid #2a5d3b; }
+    form { background: #fff; padding: 1em; margin-top: 1em; border-radius: 6px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+    input[type=text] { padding: 0.5em; width: 90%; margin-bottom: 0.5em; }
+    input[type=submit] { background: #2a5d3b; color: white; border: none; padding: 0.5em 1em; border-radius: 4px; cursor: pointer; }
+    a { display: inline-block; margin-top: 1em; color: white; background: #2a5d3b; padding: 0.5em 1em; text-decoration: none; border-radius: 4px; }
+    </style></head><body>
+    <h2>Brugere</h2><ul>'''
+    for kode, navn in brugere:
+        html += f"<li>{navn} ({kode}) <form method='POST' action='/slet-bruger' style='display:inline'><input type='hidden' name='kode' value='{kode}'><input type='submit' value='Slet'></form></li>"
+    html += '''</ul><form method="POST" action="/tilfoej-bruger">
+        <h3>Tilføj ny bruger</h3>
+        Navn: <input type="text" name="navn" required><br>
+        Stregkode: <input type="text" name="kode" required><br>
+        <input type="submit" value="Tilføj bruger">
+    </form>
+
+    <h2>Bøger</h2><ul>'''
+    for kode, titel in boeger:
+        html += f"<li>{titel} ({kode}) <form method='POST' action='/slet-bog' style='display:inline'><input type='hidden' name='kode' value='{kode}'><input type='submit' value='Slet'></form></li>"
+    html += '''</ul><form method="POST" action="/tilfoej-bog">
+        <h3>Tilføj ny bog</h3>
+        Titel: <input type="text" name="titel" required><br>
+        Stregkode: <input type="text" name="kode" required><br>
+        <input type="submit" value="Tilføj bog">
+    </form>
+    <br><a href="/">Tilbage</a>
+    </body></html>'''
+    return html
+
+@app.route('/tilfoej-bruger', methods=['POST'])
+def tilfoej_bruger():
+    kode = request.form['kode']
+    navn = request.form['navn']
+    db = get_db()
+    try:
+        db.execute("INSERT INTO brugere (kode, navn) VALUES (?, ?)", (kode, navn))
+        db.commit()
+        flash("Bruger tilføjet")
+    except sqlite3.IntegrityError:
+        flash("Brugeren findes allerede")
+    return redirect(url_for('admin'))
+
+@app.route('/tilfoej-bog', methods=['POST'])
+def tilfoej_bog():
+    kode = request.form['kode']
+    titel = request.form['titel']
+    db = get_db()
+    try:
+        db.execute("INSERT INTO boeger (kode, titel) VALUES (?, ?)", (kode, titel))
+        db.commit()
+        flash("Bog tilføjet")
+    except sqlite3.IntegrityError:
+        flash("Bogen findes allerede")
+    return redirect(url_for('admin'))
+
+@app.route('/slet-bruger', methods=['POST'])
+def slet_bruger():
+    kode = request.form['kode']
+    db = get_db()
+    db.execute("DELETE FROM brugere WHERE kode = ?", (kode,))
+    db.commit()
+    flash("Bruger slettet")
+    return redirect(url_for('admin'))
+
+@app.route('/slet-bog', methods=['POST'])
+def slet_bog():
+    kode = request.form['kode']
+    db = get_db()
+    db.execute("DELETE FROM boeger WHERE kode = ?", (kode,))
+    db.commit()
+    flash("Bog slettet")
+    return redirect(url_for('admin'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
