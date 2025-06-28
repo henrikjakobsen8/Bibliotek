@@ -385,4 +385,135 @@ def edit_bruger():
     flash(f"Bruger '{kode}' opdateret")
     return redirect(url_for('admin'))
 
-@app.route('/admin/del
+@app.route('/admin/delete_bruger')
+@admin_required
+def delete_bruger():
+    kode = request.args.get('kode')
+    if not kode:
+        flash("Manglende bruger kode")
+        return redirect(url_for('admin'))
+    db = get_db()
+    cursor = db.cursor()
+    # Før slet tjek om brugeren har aktive udlån
+    cursor.execute("SELECT COUNT(*) FROM udlaan WHERE bruger_kode=? AND afleveret_dato IS NULL", (kode,))
+    active = cursor.fetchone()[0]
+    if active > 0:
+        flash("Kan ikke slette bruger med aktive udlån")
+        return redirect(url_for('admin'))
+    cursor.execute("DELETE FROM brugere WHERE kode=?", (kode,))
+    db.commit()
+    flash(f"Bruger '{kode}' slettet")
+    return redirect(url_for('admin'))
+
+@app.route('/admin/upload_brugere', methods=['POST'])
+@admin_required
+def upload_brugere():
+    if 'file' not in request.files:
+        flash("Ingen fil valgt")
+        return redirect(url_for('admin'))
+    file = request.files['file']
+    if file.filename == '':
+        flash("Ingen fil valgt")
+        return redirect(url_for('admin'))
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    reader = csv.reader(stream)
+    db = get_db()
+    cursor = db.cursor()
+    count = 0
+    for row in reader:
+        if len(row) >= 2:
+            kode, navn = row[0].strip(), row[1].strip()
+            if kode and navn:
+                try:
+                    cursor.execute("INSERT INTO brugere (kode, navn) VALUES (?, ?)", (kode, navn))
+                    count += 1
+                except sqlite3.IntegrityError:
+                    pass
+    db.commit()
+    flash(f"{count} brugere importeret")
+    return redirect(url_for('admin'))
+
+# --- Bog funktioner ---
+
+@app.route('/admin/add_bog', methods=['POST'])
+@admin_required
+def add_bog():
+    kode = request.form['kode'].strip()
+    titel = request.form['titel'].strip()
+    if not kode or not titel:
+        flash("Kode og titel er påkrævet")
+        return redirect(url_for('admin'))
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute("INSERT INTO boeger (kode, titel) VALUES (?, ?)", (kode, titel))
+        db.commit()
+        flash(f"Bog '{titel}' tilføjet")
+    except sqlite3.IntegrityError:
+        flash(f"Bog med kode '{kode}' findes allerede")
+    return redirect(url_for('admin'))
+
+@app.route('/admin/edit_bog', methods=['POST'])
+@admin_required
+def edit_bog():
+    kode = request.form['kode'].strip()
+    titel = request.form['titel'].strip()
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("UPDATE boeger SET titel=? WHERE kode=?", (titel, kode))
+    db.commit()
+    flash(f"Bog '{kode}' opdateret")
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete_bog')
+@admin_required
+def delete_bog():
+    kode = request.args.get('kode')
+    if not kode:
+        flash("Manglende bog kode")
+        return redirect(url_for('admin'))
+    db = get_db()
+    cursor = db.cursor()
+    # Tjek om bogen er udlånt
+    cursor.execute("SELECT COUNT(*) FROM udlaan WHERE bog_kode=? AND afleveret_dato IS NULL", (kode,))
+    active = cursor.fetchone()[0]
+    if active > 0:
+        flash("Kan ikke slette bog med aktive udlån")
+        return redirect(url_for('admin'))
+    cursor.execute("DELETE FROM boeger WHERE kode=?", (kode,))
+    db.commit()
+    flash(f"Bog '{kode}' slettet")
+    return redirect(url_for('admin'))
+
+@app.route('/admin/upload_boeger', methods=['POST'])
+@admin_required
+def upload_boeger():
+    if 'file' not in request.files:
+        flash("Ingen fil valgt")
+        return redirect(url_for('admin'))
+    file = request.files['file']
+    if file.filename == '':
+        flash("Ingen fil valgt")
+        return redirect(url_for('admin'))
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    reader = csv.reader(stream)
+    db = get_db()
+    cursor = db.cursor()
+    count = 0
+    for row in reader:
+        if len(row) >= 2:
+            kode, titel = row[0].strip(), row[1].strip()
+            if kode and titel:
+                try:
+                    cursor.execute("INSERT INTO boeger (kode, titel) VALUES (?, ?)", (kode, titel))
+                    count += 1
+                except sqlite3.IntegrityError:
+                    pass
+    db.commit()
+    flash(f"{count} bøger importeret")
+    return redirect(url_for('admin'))
+
+# --- Main app starter her ---
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
