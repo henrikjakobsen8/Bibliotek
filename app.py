@@ -8,65 +8,125 @@ import data_access as db
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'skift_denne_til_en_stærk_nøgle')
 
-# HTML Template med designinspiration fra Vejlefjordskolen
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
-<html lang="da">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bibliotek - Udlånssystem</title>
+    <title>Bibliotek System</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; }
-        header { background-color: #2a5d3b; padding: 20px; color: white; text-align: center; }
-        header h1 { margin: 0; font-size: 1.8em; }
-        main { padding: 20px; max-width: 600px; margin: auto; }
-        form { background-color: white; padding: 20px; margin-bottom: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        form h2 { margin-top: 0; font-size: 1.4em; color: #2a5d3b; }
-        label { display: block; margin-top: 10px; font-weight: bold; }
-        input[type="text"], select { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
-        input[type="submit"] { background-color: #2a5d3b; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
-        input[type="submit"]:hover { background-color: #244e33; }
-        .message { padding: 12px; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 20px; border-radius: 4px; }
-        a { color: #2a5d3b; text-decoration: none; display: inline-block; margin-top: 8px; }
-        a:hover { text-decoration: underline; }
-        .nav-links { margin-top: 20px; text-align: center; }
+        :root {
+            --primær-bg: #f8f9f4;
+            --accent: #2a5d3b;
+            --text-color: #333;
+        }
+        body {
+            background: var(--primær-bg);
+            color: var(--text-color);
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background: var(--accent);
+            color: white;
+            padding: 1em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        nav a {
+            color: white;
+            margin: 0 1em;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .hero {
+            padding: 2em;
+            background: #e8ede5;
+            text-align: center;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 2em;
+        }
+        form {
+            background: white;
+            padding: 1em;
+            margin-bottom: 1em;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+        input, button {
+            padding: 0.5em;
+            margin: 0.5em 0;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #244a31;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            background: #fff;
+            margin-bottom: 0.5em;
+            padding: 0.5em;
+            border-left: 4px solid var(--accent);
+        }
+        .message {
+            background: #fff3cd;
+            padding: 1em;
+            margin-bottom: 1em;
+            border-left: 4px solid #ffeeba;
+        }
     </style>
 </head>
 <body>
     <header>
-        <h1>Bibliotekets Udlånssystem</h1>
+        <h1>📚 Bibliotek</h1>
+        <nav>
+            <a href="/">Start</a>
+            <a href="/udlaan-oversigt">Udlånsliste</a>
+        </nav>
     </header>
-    <main>
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            {% for message in messages %}
-              <div class="message">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-
+    <section class="hero">
+        <h2>Velkommen til Bibliotekssystemet</h2>
+        <p>Scan, lån og aflever – nemt og hurtigt.</p>
+    </section>
+    <div class="container">
         <form method="POST" action="/udlaan">
-            <h2>Udlån af bog</h2>
-            <label for="bruger">Bruger stregkode:</label>
-            <input type="text" name="bruger" id="bruger" required>
-            <label for="bog">Bog stregkode:</label>
-            <input type="text" name="bog" id="bog" required>
-            <input type="submit" value="Udlån">
+            <h3>📤 Udlån</h3>
+            Scan bruger: <input name="bruger" required><br>
+            Scan bog: <input name="bog" required><br>
+            <button type="submit">Udlån</button>
         </form>
 
         <form method="POST" action="/aflevering">
-            <h2>Aflever bog</h2>
-            <label for="bog_afl">Bog stregkode:</label>
-            <input type="text" name="bog" id="bog_afl" required>
-            <input type="submit" value="Aflever">
+            <h3>📥 Aflevering</h3>
+            Scan bog: <input name="bog" required><br>
+            <button type="submit">Aflever</button>
         </form>
 
-        <div class="nav-links">
-            <a href="/udlaan-oversigt">📚 Se aktuelle udlån</a><br>
-            <a href="/admin">🔐 Gå til Adminside</a>
-        </div>
-    </main>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="message">
+              {% for message in messages %}
+                <p>{{ message }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+    </div>
 </body>
 </html>
 '''
