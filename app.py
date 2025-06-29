@@ -95,8 +95,8 @@ HTML_TEMPLATE = '''
     <header>
         <h1>📚 Bibliotek</h1>
         <nav>
-            <a href="/">Start</a>
-            <a href="/udlaan-oversigt">Udlånsliste</a>
+            <a href="/udlaan-oversigt">📚 Se aktuelle udlån</a><br>
+            <a href="/admin">🔐 Gå til Adminside</a>
         </nav>
     </header>
     <section class="hero">
