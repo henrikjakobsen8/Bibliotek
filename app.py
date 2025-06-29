@@ -1,5 +1,6 @@
 from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, session
 from functools import wraps
+from flask import send_file
 import os
 import datetime
 import data_access as db
@@ -162,6 +163,9 @@ def admin():
                 <a href="/admin/opret-bruger" class="button">➕ Opret ny bruger</a>
                 <a href="/admin/opret-bog" class="button">📚 Opret ny bog</a>
                 <a href="/admin/oversigt" class="button">📊 Se oversigt over brugere og bøger</a>
+                <a href="/admin/download-brugere">⬇️ Download brugere</a><br>
+                <a href="/admin/download-boeger">⬇️ Download bøger</a><br>
+                <a href="/admin/download-udlaan">⬇️ Download udlån</a><br>
                 <a href="/admin/logout" class="button">🚪 Log ud</a>
             </div>
         </body>
@@ -360,6 +364,22 @@ def admin_logout():
     session.pop('admin_logged_in', None)
     flash("Du er nu logget ud")
     return redirect(url_for('index'))
+
+@app.route('/admin/download-udlaan')
+@admin_required
+def download_udlaan():
+    return send_file('data/udlaan.csv', as_attachment=True)
+
+@app.route('/admin/download-brugere')
+@admin_required
+def download_brugere():
+    return send_file('data/brugere.csv', as_attachment=True)
+
+@app.route('/admin/download-boeger')
+@admin_required
+def download_boeger():
+    return send_file('data/boeger.csv', as_attachment=True)
+
 
 if __name__ == '__main__':
     os.makedirs('data', exist_ok=True)
