@@ -1,0 +1,25 @@
+<!-- templates/admin_login.html -->
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Login</title>
+</head>
+<body>
+    <h1>Admin Login</h1>
+    <form method="POST">
+        <input type="text" name="username" placeholder="Brugernavn" required><br>
+        <input type="password" name="password" placeholder="Kodeord" required><br>
+        <input type="submit" value="Login">
+    </form>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+          {% for message in messages %}
+            <li>{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+</body>
+</html>
