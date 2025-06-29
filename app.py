@@ -7,7 +7,62 @@ import data_access as db
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'skift_denne_til_en_stærk_nøgle')
 
-HTML_TEMPLATE = '''...'''  # Din eksisterende HTML skabelon
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <title>Bibliotek</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: auto; }
+        h1, h2 { color: #333; }
+        form { margin-bottom: 20px; }
+        label { display: block; margin-top: 10px; }
+        input[type=text], input[type=password] { width: 100%; padding: 8px; }
+        input[type=submit] { margin-top: 10px; padding: 8px 16px; }
+        .flash { background: #ffd; padding: 10px; margin-bottom: 10px; border: 1px solid #cc0; }
+    </style>
+</head>
+<body>
+    <h1>Velkommen til Biblioteket</h1>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="flash">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h2>Registrer udlån</h2>
+    <form action="/udlaan" method="post">
+        <label for="bruger">Brugerkode:</label>
+        <input type="text" name="bruger" required>
+        <label for="bog">Bogkode:</label>
+        <input type="text" name="bog" required>
+        <input type="submit" value="Udlån">
+    </form>
+
+    <h2>Registrer aflevering</h2>
+    <form action="/aflevering" method="post">
+        <label for="bog">Bogkode:</label>
+        <input type="text" name="bog" required>
+        <input type="submit" value="Aflever">
+    </form>
+
+    <h2>Se udlån for en bruger</h2>
+    <form action="/udlaan-oversigt" method="post">
+        <label for="bruger">Brugerkode:</label>
+        <input type="text" name="bruger" required>
+        <input type="submit" value="Vis udlån">
+    </form>
+
+    <hr>
+    <a href="/admin">Gå til admin</a>
+</body>
+</html>
+"""
+
 
 def admin_required(f):
     @wraps(f)
