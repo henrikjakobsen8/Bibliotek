@@ -295,7 +295,65 @@ def opret_bog():
 def admin_oversigt():
     brugere = db.hent_alle_brugere()
     boeger = db.hent_alle_boeger()
-    return render_template_string('''<html>...''', brugere=brugere, boeger=boeger)
+    udlaan = db._read_csv('data/udlaan.csv')  # eller db.hent_alle_udlaan() hvis du ønsker en dedikeret funktion
+
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="da">
+    <head>
+        <meta charset="UTF-8">
+        <title>Admin Oversigt</title>
+        <style>
+            body { font-family: sans-serif; padding: 20px; background-color: #f0f4f8; }
+            h2 { color: #2a5d3b; }
+            table { border-collapse: collapse; width: 100%; margin-bottom: 40px; background: white; }
+            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+            th { background-color: #e0efe4; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .afleveret { color: gray; }
+            .aktiv { color: green; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <h1>📋 Admin Oversigt</h1>
+
+        <h2>Brugere</h2>
+        <table>
+            <tr><th>Kode</th><th>Navn</th></tr>
+            {% for b in brugere %}
+            <tr><td>{{ b.kode }}</td><td>{{ b.navn }}</td></tr>
+            {% endfor %}
+        </table>
+
+        <h2>Bøger</h2>
+        <table>
+            <tr><th>Kode</th><th>Titel</th></tr>
+            {% for bog in boeger %}
+            <tr><td>{{ bog.kode }}</td><td>{{ bog.titel }}</td></tr>
+            {% endfor %}
+        </table>
+
+        <h2>Udlån</h2>
+        <table>
+            <tr><th>Bruger</th><th>Bog</th><th>Dato</th><th>Status</th></tr>
+            {% for u in udlaan %}
+            <tr>
+                <td>{{ u.bruger }}</td>
+                <td>{{ u.bog }}</td>
+                <td>{{ u.dato }}</td>
+                <td>
+                    {% if u.afleveret %}
+                        <span class="afleveret">Afleveret {{ u.afleveret[:10] }}</span>
+                    {% else %}
+                        <span class="aktiv">Udlånt</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </body>
+    </html>
+    ''', brugere=brugere, boeger=boeger, udlaan=udlaan)
 
 @app.route('/admin/logout')
 def admin_logout():
