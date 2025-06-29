@@ -6,7 +6,7 @@ BRUGERFIL = 'data/brugere.csv'
 BOGFIL = 'data/boeger.csv'
 UDLAANFIL = 'data/udlaan.csv'
 
-# Hjælpefunktion
+# Hjælpefunktioner
 def _read_csv(filepath):
     if not os.path.exists(filepath):
         return []
@@ -58,7 +58,12 @@ def bog_udlaant(bog_kode):
 
 def registrer_udlaan(bruger_kode, bog_kode):
     rows = _read_csv(UDLAANFIL)
-    rows.append({'bruger': bruger_kode, 'bog': bog_kode, 'dato': datetime.now().isoformat(), 'afleveret': ''})
+    rows.append({
+        'bruger': bruger_kode,
+        'bog': bog_kode,
+        'dato': datetime.now().isoformat(),
+        'afleveret': ''
+    })
     _write_csv(UDLAANFIL, ['bruger', 'bog', 'dato', 'afleveret'], rows)
 
 def registrer_aflevering(bog_kode):
@@ -74,4 +79,11 @@ def registrer_aflevering(bog_kode):
     return updated
 
 def hent_udlaan_for_bruger(bruger_kode):
-    return [row for row in _read_csv(UDLAANFIL) if row['bruger'] == bruger_kode and not row.get('afleveret')]
+    return [
+        row for row in _read_csv(UDLAANFIL)
+        if row['bruger'] == bruger_kode and not row.get('afleveret')
+    ]
+
+def hent_alle_udlaan():
+    """Returnér alle udlån (også dem der er afleveret)"""
+    return _read_csv(UDLAANFIL)
