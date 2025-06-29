@@ -161,31 +161,52 @@ def aflevering():
     return redirect(url_for('index'))
 
 # Rute: Aktuelle udlån
-@app.route('/udlaan-oversigt')
+@app.route('/udlaan-oversigt', methods=['GET', 'POST'])
 def udlaan_oversigt():
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("""
-        SELECT u.bog_kode, u.bruger_kode, u.udlaan_dato, b.titel, br.navn
-        FROM udlaan u
-        LEFT JOIN boeger b ON u.bog_kode = b.kode
-        LEFT JOIN brugere br ON u.bruger_kode = br.kode
-        WHERE u.afleveret_dato IS NULL
-    """)
-    udlaante = cursor.fetchall()
+    if request.method == 'POST':
+        bruger_kode = request.form['bruger']
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT u.bog_kode, u.udlaan_dato, b.titel
+            FROM udlaan u
+            LEFT JOIN boeger b ON u.bog_kode = b.kode
+            WHERE u.afleveret_dato IS NULL AND u.bruger_kode = ?
+        """, (bruger_kode,))
+        udlaante = cursor.fetchall()
 
-    html = '''<html><head><title>Udlånsliste</title><style>
-        body { font-family: Segoe UI, sans-serif; background: #f8f9f4; color: #333; padding: 2em; }
-        ul { list-style: none; padding: 0; }
-        li { background: #fff; margin-bottom: 0.5em; padding: 0.5em; border-left: 4px solid #2a5d3b; }
-        a { display: inline-block; margin-top: 1em; color: white; background: #2a5d3b; padding: 0.5em 1em; text-decoration: none; border-radius: 4px; }
-    </style></head><body><h2>Aktuelle udlån</h2><ul>'''
-    for bog_kode, bruger_kode, dato, titel, navn in udlaante:
-        vis_bog = titel or bog_kode
-        vis_bruger = navn or bruger_kode
-        html += f"<li><b>{vis_bog}</b> lånt af <i>{vis_bruger}</i> den {dato[:10]}</li>"
-    html += '</ul><a href="/">Tilbage</a></body></html>'
-    return html
+        html = '''<html><head><title>Dine udlån</title><style>
+            body { font-family: Segoe UI, sans-serif; background: #f8f9f4; color: #333; padding: 2em; }
+            ul { list-style: none; padding: 0; }
+            li { background: #fff; margin-bottom: 0.5em; padding: 0.5em; border-left: 4px solid #2a5d3b; }
+            .expired { border-color: red; }
+            a { display: inline-block; margin-top: 1em; color: white; background: #2a5d3b; padding: 0.5em 1em; text-decoration: none; border-radius: 4px; }
+        </style></head><body>
+        <h2>Dine aktuelle udlån</h2><ul>'''
+
+        for bog_kode, dato, titel in udlaante:
+            dato_obj = datetime.datetime.fromisoformat(dato)
+            overskredet = (datetime.datetime.now() - dato_obj).days > 30
+            css_class = "expired" if overskredet else ""
+            udlån_dato = dato_obj.strftime('%Y-%m-%d')
+            html += f'<li class="{css_class}"><b>{titel or bog_kode}</b> udlånt den {udlån_dato}'
+            if overskredet:
+                html += ' <span style="color:red;">(for sent afleveret)</span>'
+            html += '</li>'
+
+        html += '</ul><a href="/">Tilbage</a></body></html>'
+        return html
+
+    return render_template_string('''
+        <h2>Se dine udlån</h2>
+        <form method="post">
+            <label>Indtast din stregkode:</label><br>
+            <input type="text" name="bruger" required><br><br>
+            <input type="submit" value="Vis udlån">
+        </form>
+        <a href="/">Tilbage til forsiden</a>
+    ''')
+
     
 @app.route('/admin')
 @admin_required
