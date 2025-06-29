@@ -215,6 +215,7 @@ def admin():
     return render_template_string('''
         <h2>Velkommen til Adminsiden</h2>
         <ul>
+            <li><a href="/admin/oversigt">Bruger- og bogoversigt</a></li>
             <li><a href="/admin/opret-bruger">Opret bruger</a></li>
             <li><a href="/admin/opret-bog">Opret bog</a></li>
             <li><a href="/">Tilbage til forsiden</a></li>
@@ -322,12 +323,77 @@ def opret_bog():
         {% endwith %}
     ''')
 
+@app.route('/admin/oversigt')
+@admin_required
+def admin_oversigt():
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("SELECT kode, navn FROM brugere ORDER BY navn")
+    brugere = cursor.fetchall()
+
+    cursor.execute("SELECT kode, titel FROM boeger ORDER BY titel")
+    boeger = cursor.fetchall()
+
+    return render_template_string('''
+        <html>
+        <head>
+            <title>Admin Oversigt</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; padding: 20px; }
+                h2 { color: #2a5d3b; }
+                .section { margin-bottom: 40px; }
+                input[type="text"] { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+                ul { list-style: none; padding: 0; }
+                li { background-color: white; padding: 10px; border-bottom: 1px solid #ddd; }
+                a { color: #2a5d3b; text-decoration: none; display: inline-block; margin-top: 20px; }
+            </style>
+            <script>
+                function filterList(inputId, listId) {
+                    var input = document.getElementById(inputId);
+                    var filter = input.value.toLowerCase();
+                    var ul = document.getElementById(listId);
+                    var items = ul.getElementsByTagName('li');
+                    for (var i = 0; i < items.length; i++) {
+                        var txt = items[i].textContent || items[i].innerText;
+                        items[i].style.display = txt.toLowerCase().includes(filter) ? "" : "none";
+                    }
+                }
+            </script>
+        </head>
+        <body>
+            <h2>Adminoversigt</h2>
+
+            <div class="section">
+                <h3>Brugere</h3>
+                <input type="text" id="brugerFilter" onkeyup="filterList('brugerFilter', 'brugerList')" placeholder="Søg efter navn eller stregkode...">
+                <ul id="brugerList">
+                    {% for kode, navn in brugere %}
+                        <li><b>{{ navn }}</b> — {{ kode }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="section">
+                <h3>Bøger</h3>
+                <input type="text" id="bogFilter" onkeyup="filterList('bogFilter', 'bogList')" placeholder="Søg efter titel eller stregkode...">
+                <ul id="bogList">
+                    {% for kode, titel in boeger %}
+                        <li><b>{{ titel }}</b> — {{ kode }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <a href="/admin">Tilbage til adminside</a>
+        </body>
+        </html>
+    ''', brugere=brugere, boeger=boeger)
+
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('admin_logged_in', None)
     flash("Du er nu logget ud")
     return redirect(url_for('index'))
-
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
