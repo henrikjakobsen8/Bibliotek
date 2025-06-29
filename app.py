@@ -166,42 +166,70 @@ def aflevering():
 
 @app.route('/udlaan-oversigt', methods=['GET', 'POST'])
 def udlaan_oversigt():
+    bruger = None
+    udlaante = []
+    fejl = None
+
     if request.method == 'POST':
-        bruger = request.form['bruger']
+        bruger = request.form['bruger'].strip()
         if not db.find_bruger(bruger):
-            return render_template_string(f'''
-                <h2>Udlån for bruger: {bruger}</h2>
-                <p style="color:red;">Brugeren blev ikke fundet.</p>
-                <a href="/">🔙 Tilbage</a>
-            ''')
-
-        udlaante = db.hent_udlaan_for_bruger(bruger)
-        boeger = {b['kode']: b['titel'] for b in db.hent_alle_boeger()}
-
-        html = f'''
-        <h2>Udlån for bruger: {bruger}</h2>
-        <a href="/">🔙 Tilbage</a>
-        <ul>
-        '''
-        if not udlaante:
-            html += "<li>Ingen aktive udlån.</li>"
+            fejl = "Brugeren findes ikke."
         else:
-            for u in udlaante:
-                titel = boeger.get(u['bog'], "Ukendt titel")
-                html += f"<li>{titel} (Bogkode: {u['bog']}) – Udlånt: {u['dato'][:10]}</li>"
-        html += "</ul>"
-        return render_template_string(html)
+            udlaante_rå = db.hent_udlaan_for_bruger(bruger)
+            boeger = {b['kode']: b['titel'] for b in db.hent_alle_boeger()}
+            udlaante = [{
+                'bog': u['bog'],
+                'titel': boeger.get(u['bog'], 'Ukendt titel'),
+                'dato': u['dato']
+            } for u in udlaante_rå]
 
-    # Returner formular ved GET-request
-    return render_template_string('''
+    return render_template_string(HTML_TEMPLATE_OVERSIGT, bruger=bruger, udlaante=udlaante, fejl=fejl)
+HTML_TEMPLATE_OVERSIGT = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bibliotek Udlån Oversigt</title>
+    <style>
+        /* Samme CSS som din forside ... */
+        {{ styles }}
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📚 Bibliotek</h1>
+        <nav>
+            <a href="/">🏠 Forside</a><br>
+            <a href="/admin">🔐 Admin</a>
+        </nav>
+    </header>
+    <section class="hero">
         <h2>Se aktuelle udlån</h2>
-        <form method="post">
-            <label for="bruger">Brugerkode:</label>
-            <input type="text" name="bruger" required>
+        <p>Indtast brugerkode for at se aktive udlån</p>
+    </section>
+    <div class="container">
+        <form method="POST">
+            Brugerkode: <input name="bruger" required><br>
             <button type="submit">Søg</button>
         </form>
-        <a href="/">🔙 Tilbage</a>
-    ''')
+
+        {% if bruger %}
+            {% if fejl %}
+                <div class="message">{{ fejl }}</div>
+            {% elif udlaante %}
+                <h3>Aktive udlån for: {{ bruger }}</h3>
+                <ul>
+                {% for u in udlaante %}
+                    <li>{{ u.titel }} ({{ u.bog }}) – Udlånt: {{ u.dato[:10] }}</li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <div class="message">Ingen aktive udlån for {{ bruger }}.</div>
+            {% endif %}
+        {% endif %}
+    </div>
+</body>
+</html>
+'''.replace("{{ styles }}", HTML_TEMPLATE.split("<style>")[1].split("</style>")[0])
 
 @app.route('/admin')
 @admin_required
