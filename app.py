@@ -115,7 +115,17 @@ def udlaan_oversigt():
 @app.route('/admin')
 @admin_required
 def admin():
-    return render_template("admin_login.html")
+    ...
+    return render_template_string('''
+        <h2>Velkommen til Adminsiden</h2>
+        <ul>
+            <li><a href="/admin/oversigt">Bruger- og bogoversigt</a></li>
+            <li><a href="/admin/opret-bruger">Opret bruger</a></li>
+            <li><a href="/admin/opret-bog">Opret bog</a></li>
+            <li><a href="/">Tilbage til forsiden</a></li>
+            <li><a href="/admin/logout">Log ud</a></li>
+        </ul>
+    ''')
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
