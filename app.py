@@ -168,8 +168,16 @@ def aflevering():
 def udlaan_oversigt():
     if request.method == 'POST':
         bruger = request.form['bruger']
+        if not db.find_bruger(bruger):
+            return render_template_string(f'''
+                <h2>Udlån for bruger: {bruger}</h2>
+                <p style="color:red;">Brugeren blev ikke fundet.</p>
+                <a href="/">🔙 Tilbage</a>
+            ''')
+
         udlaante = db.hent_udlaan_for_bruger(bruger)
         boeger = {b['kode']: b['titel'] for b in db.hent_alle_boeger()}
+
         html = f'''
         <h2>Udlån for bruger: {bruger}</h2>
         <a href="/">🔙 Tilbage</a>
@@ -180,10 +188,12 @@ def udlaan_oversigt():
         else:
             for u in udlaante:
                 titel = boeger.get(u['bog'], "Ukendt titel")
-                html += f"<li>{titel} (Bogkode: {u['bog']}) – Udlånt: {u['dato']}</li>"
+                html += f"<li>{titel} (Bogkode: {u['bog']}) – Udlånt: {u['dato'][:10]}</li>"
         html += "</ul>"
         return render_template_string(html)
+
     return redirect(url_for('index'))
+
 
 @app.route('/admin')
 @admin_required
