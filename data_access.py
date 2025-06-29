@@ -93,5 +93,12 @@ def slet_bruger(kode):
     _write_csv(BRUGERFIL, ['kode', 'navn'], rows)
 
 def slet_bog(kode):
+    # Først tjek om bogen er udlånt
+    for row in _read_csv(UDLAANFIL):
+        if row['bog'] == kode and not row.get('afleveret'):
+            return False  # Bogen er stadig udlånt
+
+    # Hvis ikke udlånt, slet fra bogfilen
     rows = [r for r in _read_csv(BOGFIL) if r['kode'] != kode]
     _write_csv(BOGFIL, ['kode', 'titel'], rows)
+    return True
