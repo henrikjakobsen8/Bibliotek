@@ -298,12 +298,12 @@ def opret_bog():
 @admin_required
 def admin_oversigt():
     brugere = db.hent_alle_brugere()
-    boeger = {bog['kode']: bog['titel'] for bog in db.hent_alle_boeger()}
+    boeger = {bog['kode'].strip(): bog['titel'] for bog in db.hent_alle_boeger()}
     udlaan = db.hent_alle_udlaan()  # Antager den returnerer liste med dicts
     
     # Berig udlån med bogtitel
     for u in udlaan:
-        u['titel'] = boeger.get(u['bog'], 'Ukendt titel')
+    u['titel'] = boeger.get(u['bog'].strip(), 'Ukendt titel')
 
     return render_template_string('''
 <!DOCTYPE html>
