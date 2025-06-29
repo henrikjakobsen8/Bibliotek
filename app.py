@@ -169,9 +169,21 @@ def udlaan_oversigt():
     if request.method == 'POST':
         bruger = request.form['bruger']
         udlaante = db.hent_udlaan_for_bruger(bruger)
-        html = '<html>... liste med farvelægning som før ...</html>'
-        return html
-    return render_template_string('''<form>...</form>''')
+        boeger = {b['kode']: b['titel'] for b in db.hent_alle_boeger()}
+        html = f'''
+        <h2>Udlån for bruger: {bruger}</h2>
+        <a href="/">🔙 Tilbage</a>
+        <ul>
+        '''
+        if not udlaante:
+            html += "<li>Ingen aktive udlån.</li>"
+        else:
+            for u in udlaante:
+                titel = boeger.get(u['bog'], "Ukendt titel")
+                html += f"<li>{titel} (Bogkode: {u['bog']}) – Udlånt: {u['dato']}</li>"
+        html += "</ul>"
+        return render_template_string(html)
+    return redirect(url_for('index'))
 
 @app.route('/admin')
 @admin_required
@@ -223,9 +235,9 @@ def admin():
                 <a href="/admin/opret-bruger" class="button">➕ Opret ny bruger</a>
                 <a href="/admin/opret-bog" class="button">📚 Opret ny bog</a>
                 <a href="/admin/oversigt" class="button">📊 Se oversigt over brugere og bøger</a>
-                <a href="/admin/download-brugere">⬇️ Download brugere</a><br>
-                <a href="/admin/download-boeger">⬇️ Download bøger</a><br>
-                <a href="/admin/download-udlaan">⬇️ Download udlån</a><br>
+                <a href="/admin/download-brugere" class="button">⬇️ Download brugere</a>
+                <a href="/admin/download-boeger" class="button">⬇️ Download bøger</a>
+                <a href="/admin/download-udlaan" class="button">⬇️ Download udlån</a>
                 <a href="/admin/logout" class="button">🚪 Log ud</a>
             </div>
         </body>
