@@ -464,6 +464,39 @@ def admin_oversigt():
     <input type="text" id="udlaanSearch" placeholder="🔍 Søg udlån (bruger/bog/titel)..." onkeyup="toggleActiveOnly()">
     <label><input type="checkbox" id="activeOnly" onchange="toggleActiveOnly()"> Vis kun aktive udlån</label>
     <table id="udlaantabel" data-sort-asc="true">
+
+    <h3>Brugere</h3>
+    <table>
+        <tr><th>Stregkode</th><th>Navn</th><th>Handling</th></tr>
+        {% for b in brugere %}
+        <tr>
+            <td>{{ b.kode }}</td>
+            <td>{{ b.navn }}</td>
+            <td>
+                <form action="{{ url_for('slet_bruger', kode=b.kode) }}" method="post" style="display:inline;">
+                    <button type="submit" onclick="return confirm('Slet bruger {{ b.navn }}?')">🗑️ Slet</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h3>Bøger</h3>
+    <table>
+        <tr><th>Stregkode</th><th>Titel</th><th>Handling</th></tr>
+        {% for b in boeger %}
+        <tr>
+            <td>{{ b.kode }}</td>
+            <td>{{ b.titel }}</td>
+            <td>
+                <form action="{{ url_for('slet_bog', kode=b.kode) }}" method="post" style="display:inline;">
+                    <button type="submit" onclick="return confirm('Slet bog {{ b.titel }}?')">🗑️ Slet</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
         <thead>
             <tr>
                 <th onclick="sortTable('udlaantabel', 0)">Bruger</th>
@@ -500,6 +533,20 @@ def admin_logout():
 @admin_required
 def download_udlaan():
     return send_file('data/udlaan.csv', as_attachment=True)
+
+@app.route('/admin/slet-bruger/<kode>', methods=['POST'])
+@admin_required
+def slet_bruger(kode):
+    db.slet_bruger(kode)
+    flash(f"Bruger '{kode}' er slettet.")
+    return redirect(url_for('admin_oversigt'))
+
+@app.route('/admin/slet-bog/<kode>', methods=['POST'])
+@admin_required
+def slet_bog(kode):
+    db.slet_bog(kode)
+    flash(f"Bog '{kode}' er slettet.")
+    return redirect(url_for('admin_oversigt'))
 
 @app.route('/admin/download-brugere')
 @admin_required
