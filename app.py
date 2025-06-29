@@ -192,6 +192,17 @@ def udlaan_oversigt():
         html += "</ul>"
         return render_template_string(html)
 
+    # Returner formular ved GET-request
+    return render_template_string('''
+        <h2>Se aktuelle udlån</h2>
+        <form method="post">
+            <label for="bruger">Brugerkode:</label>
+            <input type="text" name="bruger" required>
+            <button type="submit">Søg</button>
+        </form>
+        <a href="/">🔙 Tilbage</a>
+    ''')
+
 @app.route('/admin')
 @admin_required
 def admin():
