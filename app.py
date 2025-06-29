@@ -192,9 +192,6 @@ def udlaan_oversigt():
         html += "</ul>"
         return render_template_string(html)
 
-    return redirect(url_for('index'))
-
-
 @app.route('/admin')
 @admin_required
 def admin():
