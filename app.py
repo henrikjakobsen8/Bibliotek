@@ -61,6 +61,45 @@ HTML_TEMPLATE = '''
 </body>
 </html>
 '''
+return render_template_string("""
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 500px; margin: auto; background-color: #f8f9fa; }
+        h2 { color: #333; }
+        form { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        label { display: block; margin-top: 10px; }
+        input[type=text], input[type=password] { width: 100%; padding: 10px; margin-top: 5px; }
+        input[type=submit] { margin-top: 15px; padding: 10px 20px; background-color: #2a5d3b; color: white; border: none; cursor: pointer; }
+        .flash { background-color: #ffe0e0; padding: 10px; margin-top: 10px; border-left: 4px solid #c00; }
+        a { display: inline-block; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Admin Login</h2>
+    <form method="post">
+        <label>Brugernavn:</label>
+        <input type="text" name="username" required>
+        <label>Kodeord:</label>
+        <input type="password" name="password" required>
+        <input type="submit" value="Log ind">
+    </form>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <a href="/">Tilbage til forsiden</a>
+</body>
+</html>
+""")
 
 
 
