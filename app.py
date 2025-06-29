@@ -80,7 +80,7 @@ def admin_required(f):
 
 @app.route('/')
 def index():
-    return render_template_string(HTML_TEMPLATE)
+    return render_template("admin_login.html")
 
 @app.route('/udlaan', methods=['POST'])
 def udlaan():
