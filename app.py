@@ -115,17 +115,59 @@ def udlaan_oversigt():
 @app.route('/admin')
 @admin_required
 def admin():
-    ...
     return render_template_string('''
-        <h2>Velkommen til Adminsiden</h2>
-        <ul>
-            <li><a href="/admin/oversigt">Bruger- og bogoversigt</a></li>
-            <li><a href="/admin/opret-bruger">Opret bruger</a></li>
-            <li><a href="/admin/opret-bog">Opret bog</a></li>
-            <li><a href="/">Tilbage til forsiden</a></li>
-            <li><a href="/admin/logout">Log ud</a></li>
-        </ul>
+        <!DOCTYPE html>
+        <html lang="da">
+        <head>
+            <meta charset="UTF-8">
+            <title>Adminpanel</title>
+            <style>
+                body { font-family: sans-serif; background-color: #f0f4f8; padding: 40px; }
+                .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+                h2 { color: #2a5d3b; }
+                a.button {
+                    display: block;
+                    background-color: #2a5d3b;
+                    color: white;
+                    padding: 12px;
+                    margin: 10px 0;
+                    text-align: center;
+                    text-decoration: none;
+                    border-radius: 6px;
+                }
+                a.button:hover {
+                    background-color: #244e33;
+                }
+                .message {
+                    padding: 10px;
+                    background-color: #e3f7e0;
+                    border-left: 5px solid #2a5d3b;
+                    margin-bottom: 20px;
+                    border-radius: 4px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h2>🔐 Adminpanel</h2>
+
+                {% with messages = get_flashed_messages() %}
+                  {% if messages %}
+                    {% for message in messages %}
+                      <div class="message">{{ message }}</div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <a href="/admin/opret-bruger" class="button">➕ Opret ny bruger</a>
+                <a href="/admin/opret-bog" class="button">📚 Opret ny bog</a>
+                <a href="/admin/oversigt" class="button">📊 Se oversigt over brugere og bøger</a>
+                <a href="/admin/logout" class="button">🚪 Log ud</a>
+            </div>
+        </body>
+        </html>
     ''')
+
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -185,7 +227,32 @@ def opret_bruger():
         else:
             flash("Bruger med den kode findes allerede")
         return redirect(url_for('admin'))
-    return render_template_string('''<form>...</form>''')
+
+    return render_template_string('''
+        <html lang="da">
+        <head>
+            <meta charset="UTF-8">
+            <title>Opret Bruger</title>
+            <style>
+                body { font-family: sans-serif; background-color: #f0f4f8; padding: 40px; }
+                form { background: white; padding: 20px; max-width: 400px; margin: auto; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+                label, input { display: block; width: 100%; margin-bottom: 10px; }
+                input[type="submit"] { background-color: #2a5d3b; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; }
+                input[type="submit"]:hover { background-color: #244e33; }
+            </style>
+        </head>
+        <body>
+            <form method="POST">
+                <h2>➕ Opret ny bruger</h2>
+                <label for="kode">Brugerens stregkode:</label>
+                <input type="text" name="kode" id="kode" required>
+                <label for="navn">Navn:</label>
+                <input type="text" name="navn" id="navn" required>
+                <input type="submit" value="Opret">
+            </form>
+        </body>
+        </html>
+    ''')
 
 @app.route('/admin/opret-bog', methods=['GET','POST'])
 @admin_required
@@ -196,7 +263,32 @@ def opret_bog():
         else:
             flash("Bog med den kode findes allerede")
         return redirect(url_for('admin'))
-    return render_template_string('''<form>...</form>''')
+
+    return render_template_string('''
+        <html lang="da">
+        <head>
+            <meta charset="UTF-8">
+            <title>Opret Bog</title>
+            <style>
+                body { font-family: sans-serif; background-color: #f0f4f8; padding: 40px; }
+                form { background: white; padding: 20px; max-width: 400px; margin: auto; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+                label, input { display: block; width: 100%; margin-bottom: 10px; }
+                input[type="submit"] { background-color: #2a5d3b; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; }
+                input[type="submit"]:hover { background-color: #244e33; }
+            </style>
+        </head>
+        <body>
+            <form method="POST">
+                <h2>📚 Opret ny bog</h2>
+                <label for="kode">Bog stregkode:</label>
+                <input type="text" name="kode" id="kode" required>
+                <label for="titel">Titel:</label>
+                <input type="text" name="titel" id="titel" required>
+                <input type="submit" value="Opret">
+            </form>
+        </body>
+        </html>
+    ''')
 
 @app.route('/admin/oversigt')
 @admin_required
