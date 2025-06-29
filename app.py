@@ -544,8 +544,10 @@ def slet_bruger(kode):
 @app.route('/admin/slet-bog/<kode>', methods=['POST'])
 @admin_required
 def slet_bog(kode):
-    db.slet_bog(kode)
-    flash(f"Bog '{kode}' er slettet.")
+    if db.slet_bog(kode):
+        flash(f"Bog '{kode}' er slettet.")
+    else:
+        flash(f"Kan ikke slette bog '{kode}': Bogen er stadig udlånt.", 'error')
     return redirect(url_for('admin_oversigt'))
 
 @app.route('/admin/download-brugere')
