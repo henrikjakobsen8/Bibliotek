@@ -7,61 +7,61 @@ import data_access as db
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'skift_denne_til_en_stærk_nøgle')
 
-HTML_TEMPLATE = """
+# HTML Template med designinspiration fra Vejlefjordskolen
+HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="da">
 <head>
     <meta charset="UTF-8">
-    <title>Bibliotek</title>
+    <title>Bibliotek - Udlånssystem</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: auto; }
-        h1, h2 { color: #333; }
-        form { margin-bottom: 20px; }
-        label { display: block; margin-top: 10px; }
-        input[type=text], input[type=password] { width: 100%; padding: 8px; }
-        input[type=submit] { margin-top: 10px; padding: 8px 16px; }
-        .flash { background: #ffd; padding: 10px; margin-bottom: 10px; border: 1px solid #cc0; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; }
+        header { background-color: #2a5d3b; padding: 20px; color: white; text-align: center; }
+        main { padding: 20px; max-width: 600px; margin: auto; }
+        form { background-color: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input[type="text"], select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="submit"] { background-color: #2a5d3b; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        input[type="submit"]:hover { background-color: #244e33; }
+        .message { padding: 10px; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 20px; }
+        a { color: #2a5d3b; text-decoration: none; display: inline-block; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h1>Velkommen til Biblioteket</h1>
+    <header>
+        <h1>Bibliotekets Udlånssystem</h1>
+    </header>
+    <main>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="message">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
 
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        {% for msg in messages %}
-          <div class="flash">{{ msg }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+        <form method="POST" action="/udlaan">
+            <h2>Udlån af bog</h2>
+            <label>Bruger stregkode:</label>
+            <input type="text" name="bruger" required>
+            <label>Bog stregkode:</label>
+            <input type="text" name="bog" required>
+            <input type="submit" value="Udlån">
+        </form>
 
-    <h2>Registrer udlån</h2>
-    <form action="/udlaan" method="post">
-        <label for="bruger">Brugerkode:</label>
-        <input type="text" name="bruger" required>
-        <label for="bog">Bogkode:</label>
-        <input type="text" name="bog" required>
-        <input type="submit" value="Udlån">
-    </form>
+        <form method="POST" action="/aflevering">
+            <h2>Aflever bog</h2>
+            <label>Bog stregkode:</label>
+            <input type="text" name="bog" required>
+            <input type="submit" value="Aflever">
+        </form>
 
-    <h2>Registrer aflevering</h2>
-    <form action="/aflevering" method="post">
-        <label for="bog">Bogkode:</label>
-        <input type="text" name="bog" required>
-        <input type="submit" value="Aflever">
-    </form>
-
-    <h2>Se udlån for en bruger</h2>
-    <form action="/udlaan-oversigt" method="post">
-        <label for="bruger">Brugerkode:</label>
-        <input type="text" name="bruger" required>
-        <input type="submit" value="Vis udlån">
-    </form>
-
-    <hr>
-    <a href="/admin">Gå til admin</a>
+        <a href="/udlaan-oversigt">Se dine aktuelle udlån</a><br>
+        <a href="/admin">Adminside</a>
+    </main>
 </body>
 </html>
-"""
+'''
+
 
 
 def admin_required(f):
