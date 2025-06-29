@@ -303,7 +303,7 @@ def admin_oversigt():
     
     # Berig udlån med bogtitel
     for u in udlaan:
-    u['titel'] = boeger.get(u['bog'].strip(), 'Ukendt titel')
+        u['titel'] = boeger.get(u['bog'].strip(), 'Ukendt titel')
 
     return render_template_string('''
 <!DOCTYPE html>
