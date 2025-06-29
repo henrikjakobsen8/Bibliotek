@@ -87,3 +87,11 @@ def hent_udlaan_for_bruger(bruger_kode):
 def hent_alle_udlaan():
     """Returnér alle udlån (også dem der er afleveret)"""
     return _read_csv(UDLAANFIL)
+
+def slet_bruger(kode):
+    rows = [r for r in _read_csv(BRUGERFIL) if r['kode'] != kode]
+    _write_csv(BRUGERFIL, ['kode', 'navn'], rows)
+
+def slet_bog(kode):
+    rows = [r for r in _read_csv(BOGFIL) if r['kode'] != kode]
+    _write_csv(BOGFIL, ['kode', 'titel'], rows)
