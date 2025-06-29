@@ -298,9 +298,9 @@ def opret_bog():
 @admin_required
 def admin_oversigt():
     brugere = db.hent_alle_brugere()
-    boeger = db.hent_alle_boeger()
+    boeger = {bog['kode']: bog['titel'] for bog in db.hent_alle_boeger()}
     udlaan = db.hent_alle_udlaan()  # Antager den returnerer liste med dicts
-
+    
     # Berig udlån med bogtitel
     for u in udlaan:
         u['titel'] = boeger.get(u['bog'], 'Ukendt titel')
