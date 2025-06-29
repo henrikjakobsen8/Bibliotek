@@ -13,17 +13,23 @@ HTML_TEMPLATE = '''
 <html lang="da">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Bibliotek - Udlånssystem</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; }
         header { background-color: #2a5d3b; padding: 20px; color: white; text-align: center; }
+        header h1 { margin: 0; font-size: 1.8em; }
         main { padding: 20px; max-width: 600px; margin: auto; }
-        form { background-color: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        input[type="text"], select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        form { background-color: white; padding: 20px; margin-bottom: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        form h2 { margin-top: 0; font-size: 1.4em; color: #2a5d3b; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input[type="text"], select { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
         input[type="submit"] { background-color: #2a5d3b; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
         input[type="submit"]:hover { background-color: #244e33; }
-        .message { padding: 10px; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 20px; }
-        a { color: #2a5d3b; text-decoration: none; display: inline-block; margin-top: 10px; }
+        .message { padding: 12px; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 20px; border-radius: 4px; }
+        a { color: #2a5d3b; text-decoration: none; display: inline-block; margin-top: 8px; }
+        a:hover { text-decoration: underline; }
+        .nav-links { margin-top: 20px; text-align: center; }
     </style>
 </head>
 <body>
@@ -41,68 +47,28 @@ HTML_TEMPLATE = '''
 
         <form method="POST" action="/udlaan">
             <h2>Udlån af bog</h2>
-            <label>Bruger stregkode:</label>
-            <input type="text" name="bruger" required>
-            <label>Bog stregkode:</label>
-            <input type="text" name="bog" required>
+            <label for="bruger">Bruger stregkode:</label>
+            <input type="text" name="bruger" id="bruger" required>
+            <label for="bog">Bog stregkode:</label>
+            <input type="text" name="bog" id="bog" required>
             <input type="submit" value="Udlån">
         </form>
 
         <form method="POST" action="/aflevering">
             <h2>Aflever bog</h2>
-            <label>Bog stregkode:</label>
-            <input type="text" name="bog" required>
+            <label for="bog_afl">Bog stregkode:</label>
+            <input type="text" name="bog" id="bog_afl" required>
             <input type="submit" value="Aflever">
         </form>
 
-        <a href="/udlaan-oversigt">Se dine aktuelle udlån</a><br>
-        <a href="/admin">Adminside</a>
+        <div class="nav-links">
+            <a href="/udlaan-oversigt">📚 Se aktuelle udlån</a><br>
+            <a href="/admin">🔐 Gå til Adminside</a>
+        </div>
     </main>
 </body>
 </html>
 '''
-return render_template_string("""
-<!DOCTYPE html>
-<html lang="da">
-<head>
-    <meta charset="UTF-8">
-    <title>Admin Login</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; max-width: 500px; margin: auto; background-color: #f8f9fa; }
-        h2 { color: #333; }
-        form { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        label { display: block; margin-top: 10px; }
-        input[type=text], input[type=password] { width: 100%; padding: 10px; margin-top: 5px; }
-        input[type=submit] { margin-top: 15px; padding: 10px 20px; background-color: #2a5d3b; color: white; border: none; cursor: pointer; }
-        .flash { background-color: #ffe0e0; padding: 10px; margin-top: 10px; border-left: 4px solid #c00; }
-        a { display: inline-block; margin-top: 10px; }
-    </style>
-</head>
-<body>
-    <h2>Admin Login</h2>
-    <form method="post">
-        <label>Brugernavn:</label>
-        <input type="text" name="username" required>
-        <label>Kodeord:</label>
-        <input type="password" name="password" required>
-        <input type="submit" value="Log ind">
-    </form>
-
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        {% for message in messages %}
-          <div class="flash">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
-    <a href="/">Tilbage til forsiden</a>
-</body>
-</html>
-""")
-
-
-
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
