@@ -80,7 +80,7 @@ def admin_required(f):
 
 @app.route('/')
 def index():
-    return render_template("admin_login.html")
+    return render_template_string(HTML_TEMPLATE)
 
 @app.route('/udlaan', methods=['POST'])
 def udlaan():
@@ -115,7 +115,7 @@ def udlaan_oversigt():
 @app.route('/admin')
 @admin_required
 def admin():
-    return render_template_string('''<h2>Velkommen til Adminsiden</h2>...''')
+    return render_template("admin_login.html")
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
