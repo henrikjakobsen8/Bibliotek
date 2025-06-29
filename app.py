@@ -299,65 +299,124 @@ def opret_bog():
 def admin_oversigt():
     brugere = db.hent_alle_brugere()
     boeger = db.hent_alle_boeger()
-    udlaan = db._read_csv('data/udlaan.csv')  # eller db.hent_alle_udlaan() hvis du ønsker en dedikeret funktion
+    udlaan = db.hent_alle_udlaan()  # Antager den returnerer liste med dicts
+
+    # Berig udlån med bogtitel
+    for u in udlaan:
+        u['titel'] = boeger.get(u['bog'], 'Ukendt titel')
 
     return render_template_string('''
-    <!DOCTYPE html>
-    <html lang="da">
-    <head>
-        <meta charset="UTF-8">
-        <title>Admin Oversigt</title>
-        <style>
-            body { font-family: sans-serif; padding: 20px; background-color: #f0f4f8; }
-            h2 { color: #2a5d3b; }
-            table { border-collapse: collapse; width: 100%; margin-bottom: 40px; background: white; }
-            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-            th { background-color: #e0efe4; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
-            .afleveret { color: gray; }
-            .aktiv { color: green; font-weight: bold; }
-        </style>
-    </head>
-    <body>
-        <h1>📋 Admin Oversigt</h1>
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <title>Adminoversigt</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f9f9f9; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 40px; cursor: default; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #2a5d3b; color: white; cursor: pointer; }
+        h2 { color: #2a5d3b; }
+        a { display: inline-block; margin-bottom: 20px; color: #2a5d3b; text-decoration: none; }
+        input[type="text"] { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        label { display: block; margin-bottom: 10px; }
+    </style>
+    <script>
+        function filterTable(inputId, tableId, showOnlyActive = false) {
+            const input = document.getElementById(inputId).value.toLowerCase();
+            const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const isActive = row.dataset.afleveret === "nej";
+                const match = text.includes(input);
+                row.style.display = (match && (!showOnlyActive || isActive)) ? '' : 'none';
+            });
+        }
 
-        <h2>Brugere</h2>
-        <table>
-            <tr><th>Kode</th><th>Navn</th></tr>
-            {% for b in brugere %}
-            <tr><td>{{ b.kode }}</td><td>{{ b.navn }}</td></tr>
-            {% endfor %}
-        </table>
+        function toggleActiveOnly() {
+            filterTable('udlaanSearch', 'udlaantabel', document.getElementById('activeOnly').checked);
+        }
 
-        <h2>Bøger</h2>
-        <table>
-            <tr><th>Kode</th><th>Titel</th></tr>
-            {% for bog in boeger %}
-            <tr><td>{{ bog.kode }}</td><td>{{ bog.titel }}</td></tr>
-            {% endfor %}
-        </table>
+        function sortTable(tableId, colIndex) {
+            const table = document.getElementById(tableId);
+            const tbody = table.tBodies[0];
+            const rows = Array.from(tbody.rows);
+            const ascending = table.dataset.sortAsc === "true" ? false : true;
+            rows.sort((a, b) => {
+                const valA = a.cells[colIndex].innerText.toLowerCase();
+                const valB = b.cells[colIndex].innerText.toLowerCase();
+                return ascending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            });
+            rows.forEach(row => tbody.appendChild(row));
+            table.dataset.sortAsc = ascending;
+        }
+    </script>
+</head>
+<body>
+    <h1>📊 Adminoversigt</h1>
+    <a href="/admin">⬅️ Tilbage til adminside</a>
 
-        <h2>Udlån</h2>
-        <table>
-            <tr><th>Bruger</th><th>Bog</th><th>Dato</th><th>Status</th></tr>
-            {% for u in udlaan %}
+    <h2>Brugere</h2>
+    <input type="text" id="brugerSearch" placeholder="🔍 Søg brugere..." onkeyup="filterTable('brugerSearch', 'brugertabel')">
+    <table id="brugertabel" data-sort-asc="true">
+        <thead>
             <tr>
-                <td>{{ u.bruger }}</td>
-                <td>{{ u.bog }}</td>
-                <td>{{ u.dato }}</td>
-                <td>
-                    {% if u.afleveret %}
-                        <span class="afleveret">Afleveret {{ u.afleveret[:10] }}</span>
-                    {% else %}
-                        <span class="aktiv">Udlånt</span>
-                    {% endif %}
-                </td>
+                <th onclick="sortTable('brugertabel', 0)">Stregkode</th>
+                <th onclick="sortTable('brugertabel', 1)">Navn</th>
             </tr>
-            {% endfor %}
-        </table>
-    </body>
-    </html>
-    ''', brugere=brugere, boeger=boeger, udlaan=udlaan)
+        </thead>
+        <tbody>
+        {% for b in brugere %}
+            <tr><td>{{ b['kode'] }}</td><td>{{ b['navn'] }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Bøger</h2>
+    <input type="text" id="bogSearch" placeholder="🔍 Søg bøger..." onkeyup="filterTable('bogSearch', 'bogtabel')">
+    <table id="bogtabel" data-sort-asc="true">
+        <thead>
+            <tr>
+                <th onclick="sortTable('bogtabel', 0)">Stregkode</th>
+                <th onclick="sortTable('bogtabel', 1)">Titel</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for k, v in boeger.items() %}
+            <tr><td>{{ k }}</td><td>{{ v }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Udlån</h2>
+    <input type="text" id="udlaanSearch" placeholder="🔍 Søg udlån (bruger/bog/titel)..." onkeyup="toggleActiveOnly()">
+    <label><input type="checkbox" id="activeOnly" onchange="toggleActiveOnly()"> Vis kun aktive udlån</label>
+    <table id="udlaantabel" data-sort-asc="true">
+        <thead>
+            <tr>
+                <th onclick="sortTable('udlaantabel', 0)">Bruger</th>
+                <th onclick="sortTable('udlaantabel', 1)">Bog</th>
+                <th onclick="sortTable('udlaantabel', 2)">Titel</th>
+                <th onclick="sortTable('udlaantabel', 3)">Udlånsdato</th>
+                <th onclick="sortTable('udlaantabel', 4)">Afleveret</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for u in udlaan %}
+            <tr data-afleveret="{{ 'nej' if not u['afleveret'] else 'ja' }}">
+                <td>{{ u['bruger'] }}</td>
+                <td>{{ u['bog'] }}</td>
+                <td>{{ u['titel'] }}</td>
+                <td>{{ u['dato'] }}</td>
+                <td>{{ u['afleveret'] if u['afleveret'] else 'Nej' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
+''', brugere=brugere, boeger=boeger, udlaan=udlaan)
+
 
 @app.route('/admin/logout')
 def admin_logout():
