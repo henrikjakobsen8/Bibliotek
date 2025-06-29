@@ -57,7 +57,7 @@ HTML_TEMPLATE = '''
             <input type="submit" value="Aflever">
         </form>
 
-        <a href="/udlaan-oversigt">Se aktuelle udlån</a><br>
+        <a href="/udlaan-oversigt">Se dine aktuelle udlån</a><br>
         <a href="/admin">Adminside</a>
     </main>
 </body>
