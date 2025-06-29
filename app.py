@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, url_for, flash, session, g
+from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, session
 from functools import wraps
 import os
 import datetime
