@@ -120,14 +120,51 @@ def admin():
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
-        if request.form['username']=='admin' and request.form['password']=='admin':
-            session['admin_logged_in']=True
+        if request.form['username'] == 'admin' and request.form['password'] == 'admin':
+            session['admin_logged_in'] = True
             flash("Du er nu logget ind som admin")
             return redirect(url_for('admin'))
         else:
             flash("Forkert brugernavn eller kodeord")
             return redirect(url_for('admin_login'))
-    return render_template_string('''<form>...</form>''')
+
+    return render_template_string('''
+        <!DOCTYPE html>
+        <html lang="da">
+        <head>
+            <meta charset="UTF-8">
+            <title>Admin Login</title>
+            <style>
+                body { font-family: sans-serif; background-color: #f0f4f8; padding: 40px; }
+                form { background-color: white; padding: 20px; max-width: 400px; margin: auto; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+                h2 { color: #2a5d3b; }
+                label, input { display: block; width: 100%; margin-bottom: 10px; }
+                input[type="submit"] { background-color: #2a5d3b; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; }
+                input[type="submit"]:hover { background-color: #244e33; }
+                .message { padding: 10px; background-color: #e3f7e0; border-left: 5px solid #2a5d3b; margin-bottom: 20px; }
+            </style>
+        </head>
+        <body>
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <h2>Admin Login</h2>
+                <label for="username">Brugernavn:</label>
+                <input type="text" name="username" id="username" required>
+                <label for="password">Kodeord:</label>
+                <input type="password" name="password" id="password" required>
+                <input type="submit" value="Login">
+            </form>
+        </body>
+        </html>
+    ''')
+
 
 @app.route('/admin/opret-bruger', methods=['GET','POST'])
 @admin_required
