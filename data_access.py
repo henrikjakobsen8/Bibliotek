@@ -38,12 +38,17 @@ def hent_alle_brugere():
 def find_bog(kode):
     return any(row['kode'] == kode for row in _read_csv(BOGFIL))
 
-def opret_bog(kode, titel):
+def opret_bog(kode, titel, forfatter, placering):
     if find_bog(kode):
         return False
     rows = _read_csv(BOGFIL)
-    rows.append({'kode': kode, 'titel': titel})
-    _write_csv(BOGFIL, ['kode', 'titel'], rows)
+    rows.append({
+        'kode': kode,
+        'titel': titel,
+        'forfatter': forfatter,
+        'placering': placering
+    })
+    _write_csv(BOGFIL, ['kode', 'titel', 'forfatter', 'placering'], rows)
     return True
 
 def hent_alle_boeger():
