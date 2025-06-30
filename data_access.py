@@ -102,3 +102,15 @@ def slet_bog(kode):
     rows = [r for r in _read_csv(BOGFIL) if r['kode'] != kode]
     _write_csv(BOGFIL, ['kode', 'titel'], rows)
     return True
+
+def hent_udlaan_med_brugernavn_og_bogtitel():
+    udlaan = _read_csv(UDLAANFIL)
+    brugere = {b['kode']: b['navn'] for b in _read_csv(BRUGERFIL)}
+    boeger = {b['kode']: b['titel'] for b in _read_csv(BOGFIL)}
+
+    # Tilføj navn og titel til udlaan rækkerne
+    for row in udlaan:
+        row['brugernavn'] = brugere.get(row['bruger'], 'Ukendt bruger')
+        row['bogtitel'] = boeger.get(row['bog'], 'Ukendt bog')
+
+    return udlaan
