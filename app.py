@@ -494,21 +494,28 @@ def admin_oversigt():
         </tbody>
     </table>
 
-    <h2>Bøger</h2>
-    <input type="text" id="bogSearch" placeholder="🔍 Søg bøger..." onkeyup="filterTable('bogSearch', 'bogtabel')">
-    <table id="bogtabel" data-sort-asc="true">
-        <thead>
-            <tr>
-                <th onclick="sortTable('bogtabel', 0)">Stregkode</th>
-                <th onclick="sortTable('bogtabel', 1)">Titel</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for k, v in boeger.items() %}
-            <tr><td>{{ k }}</td><td>{{ v }}</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
+<h2>Bøger</h2>
+<input type="text" id="bogSearch" placeholder="🔍 Søg bøger..." onkeyup="filterTable('bogSearch', 'bogtabel')">
+<table id="bogtabel" data-sort-asc="true">
+    <thead>
+        <tr>
+            <th onclick="sortTable('bogtabel', 0)">Stregkode</th>
+            <th onclick="sortTable('bogtabel', 1)">Titel</th>
+            <th onclick="sortTable('bogtabel', 2)">Forfatter</th>
+            <th onclick="sortTable('bogtabel', 3)">Placering</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for bog in boeger %}
+        <tr>
+            <td>{{ bog['kode'] }}</td>
+            <td>{{ bog['titel'] }}</td>
+            <td>{{ bog.get('forfatter', '') }}</td>
+            <td>{{ bog.get('placering', '') }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
 
     <h2>Udlån</h2>
     <input type="text" id="udlaanSearch" placeholder="🔍 Søg udlån (bruger/bog/titel)..." onkeyup="toggleActiveOnly()">
