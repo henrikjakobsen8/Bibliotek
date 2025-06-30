@@ -418,14 +418,15 @@ def opret_bog():
 def admin_oversigt():
     brugere = db.hent_alle_brugere()
     boeger = {bog['kode'].strip(): bog['titel'] for bog in db.hent_alle_boeger()}
-    udlaan = db.hent_alle_udlaan()  # Antager den returnerer liste med dicts
-    
-    # Berig udlån med bogtitel
+    udlaan = db.hent_alle_udlaan()
+
+    brugere_dict = {b['kode'].strip(): b['navn'] for b in brugere}  # <-- her
+
     for u in udlaan:
         u['titel'] = boeger.get(u['bog'].strip(), 'Ukendt titel')
         u['brugernavn'] = brugere_dict.get(u['bruger'].strip(), 'Ukendt bruger')
 
-    return render_template_string('''
+    return render_template_string( ... )
 <!DOCTYPE html>
 <html lang="da">
 <head>
