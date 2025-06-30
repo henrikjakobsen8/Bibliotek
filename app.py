@@ -511,38 +511,6 @@ def admin_oversigt():
     <label><input type="checkbox" id="activeOnly" onchange="toggleActiveOnly()"> Vis kun aktive udlån</label>
     <table id="udlaantabel" data-sort-asc="true">
 
-    <h3>Brugere</h3>
-    <table>
-        <tr><th>Stregkode</th><th>Navn</th><th>Handling</th></tr>
-        {% for b in brugere %}
-        <tr>
-            <td>{{ b.kode }}</td>
-            <td>{{ b.navn }}</td>
-            <td>
-                <form action="{{ url_for('slet_bruger', kode=b.kode) }}" method="post" style="display:inline;">
-                    <button type="submit" onclick="return confirm('Slet bruger {{ b.navn }}?')">🗑️ Slet</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
-
-    <h3>Bøger</h3>
-    <table>
-        <tr><th>Stregkode</th><th>Titel</th><th>Handling</th></tr>
-        {% for b in boeger %}
-        <tr>
-            <td>{{ b.kode }}</td>
-            <td>{{ b.titel }}</td>
-            <td>
-                <form action="{{ url_for('slet_bog', kode=b.kode) }}" method="post" style="display:inline;">
-                    <button type="submit" onclick="return confirm('Slet bog {{ b.titel }}?')">🗑️ Slet</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
-
         <thead>
             <tr>
                 <th onclick="sortTable('udlaantabel', 0)">Bruger</th>
