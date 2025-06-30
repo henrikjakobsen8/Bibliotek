@@ -417,7 +417,7 @@ def opret_bog():
 @admin_required
 def admin_oversigt():
     brugere = db.hent_alle_brugere()
-    boeger = {bog['kode'].strip(): bog['titel'] for bog in db.hent_alle_boeger()}
+    boeger = db.hent_alle_boeger()
     udlaan = db.hent_alle_udlaan()  # Antager den returnerer liste med dicts
 
     brugere_dict = {b['kode'].strip(): b['navn'] for b in brugere}
