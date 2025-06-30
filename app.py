@@ -1,6 +1,7 @@
 from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, session
 from functools import wraps
 from flask import send_file
+from data_access import hent_udlaan_med_brugernavn_og_bogtitel
 import os
 import datetime
 import data_access as db
@@ -422,6 +423,7 @@ def admin_oversigt():
     # Berig udlån med bogtitel
     for u in udlaan:
         u['titel'] = boeger.get(u['bog'].strip(), 'Ukendt titel')
+        u['brugernavn'] = brugere_dict.get(u['bruger'].strip(), 'Ukendt bruger')
 
     return render_template_string('''
 <!DOCTYPE html>
@@ -523,7 +525,7 @@ def admin_oversigt():
         <tbody>
         {% for u in udlaan %}
             <tr data-afleveret="{{ 'nej' if not u['afleveret'] else 'ja' }}">
-                <td>{{ u['bruger'] }}</td>
+                <td>{{ u['brugernavn'] }}</td>
                 <td>{{ u['bog'] }}</td>
                 <td>{{ u['titel'] }}</td>
                 <td>{{ u['dato'] }}</td>
