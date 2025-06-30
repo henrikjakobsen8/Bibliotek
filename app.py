@@ -550,7 +550,7 @@ def admin_oversigt():
     </table>
 </body>
 </html>
-''', brugere=brugere, boeger=boeger, udlaan=udlaan)
+''', brugere=brugere, boeger=boeger_liste, udlaan=udlaan)
 
 
 @app.route('/admin/logout')
